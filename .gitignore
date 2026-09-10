@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -68,6 +68,13 @@ dmypy.json
 *~
 .DS_Store
 Thumbs.db
+
+# Local database files
+*.db
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 
 # WSL and OS runtime logs
 *.log
