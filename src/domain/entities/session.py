@@ -19,6 +19,7 @@ class Session:
         authorized_targets (List[Target]): List of targets permitted for interaction in this session.
         started_at (datetime): UTC timestamp recording when the session began.
         ended_at (Optional[datetime]): Optional UTC timestamp recording when the session was closed.
+        is_autonomous (bool): Whether the session allows autonomous AI execution. Defaults to False.
     """
 
     user: str
@@ -27,6 +28,7 @@ class Session:
     authorized_targets: List[Target] = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     ended_at: Optional[datetime] = None
+    is_autonomous: bool = False
 
     def add_command(self, command: Command) -> None:
         """Adds a command to the session history, preventing duplicates and ensuring chronological ordering.
