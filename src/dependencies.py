@@ -1,31 +1,19 @@
 """Dependency injection providers for use cases and infrastructure adapters."""
-from typing import Optional, List
 from functools import lru_cache
+from typing import Optional, List
 
 from src.application.ports.shell_executor import ShellExecutor
 from src.application.ports.session_repository import SessionRepository
 from src.application.ports.ai_gateway import AIGateway
 from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
+from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
 from src.domain.entities.policy_rule import PolicyRule
 
 
-# In-memory session repository for local use cases until DB persistence is hooked
-class InMemorySessionRepository(SessionRepository):
-    """In-memory fallback session repository for DI container."""
-    def __init__(self) -> None:
-        self._sessions = {}
-
-    async def save(self, session) -> None:
-        self._sessions[session.id] = session
-
-    async def get_history(self, filters):
-        return []
-
-
-# Dummy AI gateway for DI until Anthropic adapter is hooked
+# Placeholder AI gateway for DI until Anthropic adapter is hooked
 class DefaultAIGateway(AIGateway):
     """Default placeholder AI gateway for DI container."""
     async def send_message(self, prompt: str, history):
@@ -41,8 +29,8 @@ def get_shell_executor() -> ShellExecutor:
 
 @lru_cache()
 def get_session_repository() -> SessionRepository:
-    """Provides a singleton SessionRepository instance."""
-    return InMemorySessionRepository()
+    """Provides a singleton SQLiteSessionRepository instance."""
+    return SQLiteSessionRepository(db_path="the_guardian_of_kali.db")
 
 
 @lru_cache()
