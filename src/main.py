@@ -1,24 +1,37 @@
 """FastAPI application entrypoint for The Guardian of Kali backend service."""
-from typing import Dict, Any
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+from uuid import UUID
 import uvicorn
-from fastapi import FastAPI, Depends, status
+from fastapi import FastAPI, Depends, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.domain.entities.command import Command
+from src.domain.entities.session import Session
+from src.domain.value_objects.risk_level import RiskLevel
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.infrastructure.api.schemas import (
+    ExecuteCommandRequest,
+    ExecuteCommandResponse,
+    CommandHistoryItem,
+    HistoryResponse,
+)
 from src.dependencies import (
     get_execute_command_use_case,
     get_evaluate_policy_use_case,
     get_chat_with_ai_use_case,
+    get_session_history_use_case,
 )
 
 
 def create_app() -> FastAPI:
     """Creates and configures the FastAPI application instance.
 
-    Configures CORS restricted to local Electron origins and mounts health check
-    and dependency injection endpoints.
+    Configures CORS restricted to local Electron origins and mounts health check,
+    execution, history, and dependency injection endpoints.
 
     Returns:
         FastAPI: The configured application instance.
@@ -54,17 +67,89 @@ def create_app() -> FastAPI:
             "version": "0.1.0",
         }
 
+    @app.post(
+        "/execute",
+        response_model=ExecuteCommandResponse,
+        status_code=status.HTTP_200_OK,
+        tags=["Terminal Execution"],
+    )
+    async def execute_command(
+        payload: ExecuteCommandRequest,
+        execute_use_case: ExecuteCommandUseCase = Depends(get_execute_command_use_case),
+    ) -> ExecuteCommandResponse:
+        """Executes a terminal command via the injected ExecuteCommandUseCase and records it."""
+        session_id = payload.session_id
+        session = Session(user="ia-user", id=session_id) if session_id else Session(user="ia-user")
+
+        command_entity = Command(
+            text=payload.command,
+            origin=payload.origin,
+            target=payload.target,
+        )
+
+        result = await execute_use_case.run(command=command_entity, session=session)
+
+        return ExecuteCommandResponse(
+            command=result.command_text,
+            exit_code=result.exit_code,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            duration_ms=result.duration_ms,
+            session_id=session.id,
+        )
+
+    @app.get(
+        "/history",
+        response_model=HistoryResponse,
+        status_code=status.HTTP_200_OK,
+        tags=["Audit & History"],
+    )
+    async def get_history(
+        session_id: Optional[UUID] = Query(None, description="Filter by session UUID"),
+        user: Optional[str] = Query(None, description="Filter by session user"),
+        start_date: Optional[datetime] = Query(None, description="Start date filter (inclusive)"),
+        end_date: Optional[datetime] = Query(None, description="End date filter (inclusive)"),
+        risk_level: Optional[RiskLevel] = Query(None, description="Filter by risk level"),
+        history_use_case: GetSessionHistoryUseCase = Depends(get_session_history_use_case),
+    ) -> HistoryResponse:
+        """Queries historical executed commands with optional date range, user, or risk filters."""
+        commands = await history_use_case.run(
+            session_id=session_id,
+            user=user,
+            start_date=start_date,
+            end_date=end_date,
+            risk_level=risk_level,
+        )
+
+        items = [
+            CommandHistoryItem(
+                text=cmd.text,
+                origin=cmd.origin,
+                target=cmd.target,
+                risk_level=cmd.risk_level,
+                timestamp=cmd.timestamp,
+            )
+            for cmd in commands
+        ]
+
+        return HistoryResponse(
+            count=len(items),
+            commands=items,
+        )
+
     @app.get("/api/di-check", status_code=status.HTTP_200_OK, tags=["Diagnostic"])
     async def di_check(
         execute_use_case: ExecuteCommandUseCase = Depends(get_execute_command_use_case),
         evaluate_use_case: EvaluatePolicyUseCase = Depends(get_evaluate_policy_use_case),
         chat_use_case: ChatWithAIUseCase = Depends(get_chat_with_ai_use_case),
+        history_use_case: GetSessionHistoryUseCase = Depends(get_session_history_use_case),
     ) -> Dict[str, str]:
         """Diagnostic route verifying dependency injection of application use cases."""
         return {
             "execute_use_case": execute_use_case.__class__.__name__,
             "evaluate_use_case": evaluate_use_case.__class__.__name__,
             "chat_use_case": chat_use_case.__class__.__name__,
+            "history_use_case": history_use_case.__class__.__name__,
         }
 
     return app

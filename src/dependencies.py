@@ -10,6 +10,7 @@ from src.adapters.storage.sqlite_session_repository import SQLiteSessionReposito
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from src.domain.entities.policy_rule import PolicyRule
 
 
@@ -56,4 +57,11 @@ def get_chat_with_ai_use_case() -> ChatWithAIUseCase:
     """Provides the ChatWithAIUseCase with injected AI gateway."""
     return ChatWithAIUseCase(
         ai_gateway=get_ai_gateway(),
+    )
+
+
+def get_session_history_use_case() -> GetSessionHistoryUseCase:
+    """Provides the GetSessionHistoryUseCase with injected session repository."""
+    return GetSessionHistoryUseCase(
+        repository=get_session_repository(),
     )
