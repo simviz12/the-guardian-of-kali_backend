@@ -2,6 +2,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from src.domain.entities.command import Command
+
 
 @dataclass(frozen=True)
 class AIResponse:
@@ -35,3 +37,21 @@ class CommandResult:
     stdout: str
     stderr: str
     duration_ms: float = 0.0
+
+
+@dataclass(frozen=True)
+class ChatResult:
+    """Result outcome of a conversational turn with the AI co-pilot.
+
+    Attributes:
+        response_text (str): Conversational advice, methodology, or explanation.
+        proposed_command (Optional[Command]): Proposed command entity (if tool use suggested one).
+    """
+
+    response_text: str
+    proposed_command: Optional[Command] = None
+
+    @property
+    def has_proposed_command(self) -> bool:
+        """Returns True if the AI response includes a proposed executable command."""
+        return self.proposed_command is not None
