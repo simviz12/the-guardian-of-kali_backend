@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "the-guardian-of-kali-backend"
 version = "0.1.0"
 description = "Backend service and policy engine for The Guardian of Kali"
