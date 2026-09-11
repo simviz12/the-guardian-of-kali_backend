@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.value_objects.risk_level import RiskLevel
+from src.domain.exceptions import CommandBlockedException, TargetNotAuthorizedException
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
@@ -94,7 +95,13 @@ def create_app() -> FastAPI:
             target=payload.target,
         )
 
-        result = await execute_use_case.run(command=command_entity, session=session)
+        try:
+            result = await execute_use_case.run(command=command_entity, session=session)
+        except (CommandBlockedException, TargetNotAuthorizedException) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(exc),
+            )
 
         return ExecuteCommandResponse(
             command=result.command_text,

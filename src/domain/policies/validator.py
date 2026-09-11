@@ -85,10 +85,10 @@ def validate_command(command: Command, session: Session) -> PolicyDecision:
             )
 
     # 2. Target authorization check
-    # Check explicitly assigned command.target or heuristically extracted target
-    target_to_check = command.target or _extract_command_target(cmd_text)
-    if target_to_check:
-        if not is_target_authorized(target_to_check, session):
+    # If the session has defined authorized targets, enforce zero-trust boundary
+    if session.authorized_targets:
+        target_to_check = command.target or _extract_command_target(cmd_text)
+        if target_to_check and not is_target_authorized(target_to_check, session):
             reason = (
                 f"Target '{target_to_check}' is not within authorized session scope "
                 f"({len(session.authorized_targets)} authorized targets defined)"

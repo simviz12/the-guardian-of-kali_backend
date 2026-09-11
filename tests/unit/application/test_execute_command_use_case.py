@@ -63,6 +63,10 @@ async def test_execute_command_success() -> None:
     assert len(repo.saved_sessions) == 1
 
 
+from src.domain.entities.target import Target
+from src.domain.exceptions import CommandBlockedException
+
+
 @pytest.mark.asyncio
 async def test_execute_command_resilience_to_executor_exceptions() -> None:
     """Verifies that executor errors do not crash the app and produce error result."""
@@ -70,8 +74,11 @@ async def test_execute_command_resilience_to_executor_exceptions() -> None:
     repo = MockSessionRepository()
     use_case = ExecuteCommandUseCase(executor=executor, repository=repo)
 
-    session = Session(user="carlos")
-    cmd = Command(text="nmap 10.10.10.1", origin=CommandOrigin.AI)
+    session = Session(
+        user="carlos",
+        authorized_targets=[Target(value="10.10.10.1", description="Lab")]
+    )
+    cmd = Command(text="nmap 10.10.10.1", origin=CommandOrigin.AI, target="10.10.10.1")
 
     result = await use_case.run(command=cmd, session=session)
 
@@ -79,3 +86,40 @@ async def test_execute_command_resilience_to_executor_exceptions() -> None:
     assert "Underlying WSL process failed unexpectedly" in result.stderr
     assert len(session.commands) == 1
     assert len(repo.saved_sessions) == 1
+
+
+@pytest.mark.asyncio
+async def test_execute_command_strictly_blocks_unauthorized_ai_command() -> None:
+    """Verifies that AI commands targeting unauthorized scopes are strictly blocked."""
+    executor = MockShellExecutor()
+    repo = MockSessionRepository()
+    use_case = ExecuteCommandUseCase(executor=executor, repository=repo)
+
+    session = Session(
+        user="carlos",
+        authorized_targets=[Target(value="10.10.10.10", description="HTB Lab")],
+    )
+    cmd = Command(text="nmap 192.168.1.1", origin=CommandOrigin.AI)
+
+    with pytest.raises(CommandBlockedException) as exc_info:
+        await use_case.run(command=cmd, session=session)
+
+    assert "not within authorized session scope" in exc_info.value.reason
+    assert len(executor.executed_commands) == 0
+
+
+@pytest.mark.asyncio
+async def test_execute_command_strictly_blocks_destructive_ai_command() -> None:
+    """Verifies that destructive AI commands on blacklist are blocked before execution."""
+    executor = MockShellExecutor()
+    repo = MockSessionRepository()
+    use_case = ExecuteCommandUseCase(executor=executor, repository=repo)
+
+    session = Session(user="carlos")
+    cmd = Command(text="rm -rf /", origin=CommandOrigin.AI)
+
+    with pytest.raises(CommandBlockedException) as exc_info:
+        await use_case.run(command=cmd, session=session)
+
+    assert "Blocked by destructive blacklist rule" in exc_info.value.reason
+    assert len(executor.executed_commands) == 0
