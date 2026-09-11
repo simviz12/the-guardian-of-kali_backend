@@ -14,12 +14,7 @@ from src.application.use_cases.get_session_history import GetSessionHistoryUseCa
 from src.domain.entities.policy_rule import PolicyRule
 
 
-# Placeholder AI gateway for DI until Anthropic adapter is hooked
-class DefaultAIGateway(AIGateway):
-    """Default placeholder AI gateway for DI container."""
-    async def send_message(self, prompt: str, history):
-        from src.application.dtos.responses import AIResponse
-        return AIResponse(content="AI co-pilot initialized.", suggested_command=None)
+from src.adapters.ai.claude_ai_gateway import ClaudeAIGateway
 
 
 @lru_cache()
@@ -36,8 +31,8 @@ def get_session_repository() -> SessionRepository:
 
 @lru_cache()
 def get_ai_gateway() -> AIGateway:
-    """Provides a singleton AIGateway instance."""
-    return DefaultAIGateway()
+    """Provides a singleton ClaudeAIGateway instance."""
+    return ClaudeAIGateway()
 
 
 def get_execute_command_use_case() -> ExecuteCommandUseCase:
