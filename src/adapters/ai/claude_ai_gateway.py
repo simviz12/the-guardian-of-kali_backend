@@ -5,6 +5,7 @@ import anthropic
 
 from src.application.dtos.responses import AIResponse
 from src.application.ports.ai_gateway import AIGateway
+from src.infrastructure.config.system_prompt import KALI_GUARDIAN_SYSTEM_PROMPT
 
 
 PROPOSE_COMMAND_TOOL: Dict[str, Any] = {
@@ -30,11 +31,6 @@ PROPOSE_COMMAND_TOOL: Dict[str, Any] = {
     },
 }
 
-DEFAULT_SYSTEM_PROMPT = """You are The Guardian of Kali, an advanced cybersecurity AI co-pilot designed to guide ethical hackers, penetration testers, and CTF players safely inside a native Kali Linux environment.
-When you identify a necessary terminal action or reconnaissance/exploitation step, propose it using the 'propose_command' tool so that the policy engine can validate it before operator execution.
-Always provide clear explanations, security context, and justification.
-"""
-
 
 class ClaudeAIGateway(AIGateway):
     """Adapter connecting to Anthropic Claude models supporting function / tool calling.
@@ -48,7 +44,7 @@ class ClaudeAIGateway(AIGateway):
         self,
         api_key: Optional[str] = None,
         model: str = "claude-3-5-sonnet-20241022",
-        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        system_prompt: str = KALI_GUARDIAN_SYSTEM_PROMPT,
         client: Optional[anthropic.AsyncAnthropic] = None,
     ) -> None:
         """Initializes the Claude AI gateway adapter.
