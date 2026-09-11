@@ -43,9 +43,12 @@ def get_execute_command_use_case() -> ExecuteCommandUseCase:
     )
 
 
+from src.domain.policies.policy_rules import DEFAULT_BLACKLIST_RULES
+
+
 def get_evaluate_policy_use_case() -> EvaluatePolicyUseCase:
-    """Provides the EvaluatePolicyUseCase with configured default rules."""
-    return EvaluatePolicyUseCase()
+    """Provides the EvaluatePolicyUseCase with configured default blacklist rules."""
+    return EvaluatePolicyUseCase(rules=DEFAULT_BLACKLIST_RULES)
 
 
 def get_chat_with_ai_use_case() -> ChatWithAIUseCase:
