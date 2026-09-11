@@ -22,6 +22,11 @@ class ExecuteCommandRequest(BaseModel):
         None,
         description="Optional session UUID. A new session is created if omitted.",
     )
+    authorized_targets: Optional[List[str]] = Field(
+        None,
+        description="Optional list of authorized IP, CIDR, or domain targets for zero-trust scope enforcement.",
+    )
+
 
 
 class ExecuteCommandResponse(BaseModel):

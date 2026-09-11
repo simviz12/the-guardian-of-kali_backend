@@ -48,6 +48,16 @@ async def test_save_and_retrieve_session(repo: SQLiteSessionRepository) -> None:
     assert history[1].text == "ping -c 1 127.0.0.1"
     assert history[1].origin == CommandOrigin.AI
 
+    # Verify audit entries in policy_logs
+    conn = repo._get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT command_id, decision, reason FROM policy_logs;")
+    policy_rows = cursor.fetchall()
+    assert len(policy_rows) == 2
+    assert policy_rows[0]["decision"] == "LOW"
+    conn.close()
+
+
 
 @pytest.mark.asyncio
 async def test_filter_by_user(repo: SQLiteSessionRepository) -> None:
