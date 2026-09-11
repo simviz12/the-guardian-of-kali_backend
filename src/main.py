@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
+from src.domain.entities.target import Target
 from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.exceptions import CommandBlockedException, TargetNotAuthorizedException
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
@@ -87,7 +88,13 @@ def create_app() -> FastAPI:
     ) -> ExecuteCommandResponse:
         """Executes a terminal command via the injected ExecuteCommandUseCase and records it."""
         session_id = payload.session_id
-        session = Session(user="ia-user", id=session_id) if session_id else Session(user="ia-user")
+        targets = [Target(value=t) for t in payload.authorized_targets] if payload.authorized_targets else []
+        session = (
+            Session(user="ia-user", id=session_id, authorized_targets=targets)
+            if session_id
+            else Session(user="ia-user", authorized_targets=targets)
+        )
+
 
         command_entity = Command(
             text=payload.command,

@@ -54,6 +54,13 @@ def policy_evaluator() -> EvaluatePolicyUseCase:
         "ufw disable",
         "ufw reset",
         "nft flush ruleset",
+        "sudo nmap --script=default 10.10.10.1",
+        "sudo nmap --script /tmp/evil.nse 10.10.10.1",
+        "sudo nmap --interactive",
+        "sudo su",
+        "sudo -i",
+        "sudo bash",
+        "sudo sh",
     ],
 )
 def test_blacklist_matches_destructive_commands(policy_evaluator: EvaluatePolicyUseCase, destructive_cmd: str) -> None:

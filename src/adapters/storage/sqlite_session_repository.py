@@ -144,11 +144,27 @@ class SQLiteSessionRepository(SessionRepository):
                             cmd_origin_str,
                             cmd.target,
                             risk_level_str,
-                            None,
+                            risk_level_str,
                             None,
                             cmd_timestamp_str,
                         ),
                     )
+                    inserted_cmd_id = cursor.lastrowid
+                    if inserted_cmd_id:
+                        cursor.execute(
+                            """
+                            INSERT INTO policy_logs (
+                                command_id, decision, reason, timestamp
+                            )
+                            VALUES (?, ?, ?, ?);
+                            """,
+                            (
+                                inserted_cmd_id,
+                                risk_level_str or "PERMITTED",
+                                f"Command {cmd_origin_str} evaluated with risk {risk_level_str or 'UNSPECIFIED'}",
+                                cmd_timestamp_str,
+                            ),
+                        )
 
             conn.commit()
 

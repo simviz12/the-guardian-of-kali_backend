@@ -124,6 +124,20 @@ def test_execute_endpoint_blocks_destructive_ai_command(client: TestClient) -> N
     assert "Blocked by destructive blacklist rule" in response.json()["detail"]
 
 
+def test_execute_endpoint_blocks_unauthorized_target(client: TestClient) -> None:
+    """Verifies POST /execute strictly blocks out-of-scope targets when authorized_targets is passed."""
+    payload = {
+        "command": "ping -c 3 8.8.8.8",
+        "target": "8.8.8.8",
+        "origin": "AI",
+        "authorized_targets": ["10.10.10.0/24"],
+    }
+    response = client.post("/execute", json=payload)
+    assert response.status_code == 403
+    assert "not within authorized session scope" in response.json()["detail"].lower()
+
+
+
 def test_execute_endpoint_allows_destructive_manual_user_command_bypassing_ai_gate(client: TestClient) -> None:
     """Verifies that manual user commands bypass the AI policy gate (operator responsibility)."""
     class MockExecuteUseCase:

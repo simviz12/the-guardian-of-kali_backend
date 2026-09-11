@@ -56,6 +56,16 @@ PATTERN_HOST_FIREWALL_TAMPERING = (
     r"|\bnft\s+flush\s+ruleset\b"
 )
 
+# 6. Sudo whitelist abuse and privilege escalation breakouts
+# Blocks: 'sudo nmap --script...', 'sudo nmap --interactive', 'sudo su', 'sudo -i', 'sudo bash', 'sudo sh', 'sudo zsh'
+# Rationale: Prevents ia-user from abusing sudo nmap via NSE script execution (GTFOBins) or invoking root shells.
+PATTERN_PRIVILEGE_ESCALATION = (
+    r"\bsudo\s+nmap\b.*--(?:script(?:-args)?|interactive)\b"
+    r"|\bsudo\s+(?:-[a-zA-Z0-9]*[si]|su\b|bash\b|sh\b|zsh\b|dash\b)"
+)
+
+
+
 
 # ============================================================================
 # Default Blacklist Policy Rules
@@ -96,6 +106,13 @@ DEFAULT_BLACKLIST_RULES: List[PolicyRule] = [
         risk_level=RiskLevel.BLOCKED,
         action=PolicyAction.BLOCK,
         description="Blocks flushing or disabling host firewalls (iptables -F, ufw disable, nft flush ruleset).",
+    ),
+    PolicyRule(
+        id="block-privilege-escalation",
+        pattern=PATTERN_PRIVILEGE_ESCALATION,
+        risk_level=RiskLevel.BLOCKED,
+        action=PolicyAction.BLOCK,
+        description="Blocks privilege escalation breakouts including nmap NSE scripts and unauthorized sudo shells.",
     ),
 ]
 
