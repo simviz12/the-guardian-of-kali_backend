@@ -1,8 +1,11 @@
-"""Unit and integration tests for FastAPI application server, CORS, DI, /execute, and /history."""
+"""Unit and integration tests for FastAPI application server, CORS, DI, /execute, /history, and /chat."""
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 from uuid import uuid4
+import anthropic
+import httpx
 
 from src.main import app, create_app
 from src.dependencies import (
@@ -14,7 +17,7 @@ from src.dependencies import (
 from src.domain.entities.command import Command
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.risk_level import RiskLevel
-from src.application.dtos.responses import CommandResult
+from src.application.dtos.responses import CommandResult, ChatResult
 
 
 @pytest.fixture
@@ -134,5 +137,97 @@ def test_history_endpoint_success(client: TestClient) -> None:
     assert data["commands"][0]["text"] == "nmap -sV 10.10.10.1"
     assert data["commands"][0]["origin"] == "AI"
     assert data["commands"][0]["risk_level"] == "LOW"
+
+    app.dependency_overrides.clear()
+
+
+def test_chat_endpoint_plain_response(client: TestClient) -> None:
+    """Verifies POST /chat returns conversational guidance without tool proposal."""
+    class MockChatUseCase:
+        async def run(self, message, session):
+            return ChatResult(
+                response_text="Nmap SYN scan is stealthier than TCP connect scan.",
+                proposed_command=None,
+            )
+
+    app.dependency_overrides[get_chat_with_ai_use_case] = lambda: MockChatUseCase()
+
+    payload = {"message": "Explain SYN scan"}
+    response = client.post("/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["response"] == "Nmap SYN scan is stealthier than TCP connect scan."
+    assert data["has_proposed_command"] is False
+    assert data["proposed_command"] is None
+    assert data["session_id"] is not None
+
+    app.dependency_overrides.clear()
+
+
+def test_chat_endpoint_with_proposed_command(client: TestClient) -> None:
+    """Verifies POST /chat returns conversational advice AND structured proposed command."""
+    proposed = Command(
+        text="nmap -sS -p 80,443 10.10.10.20",
+        origin=CommandOrigin.AI,
+        target="10.10.10.20",
+    )
+
+    class MockChatUseCase:
+        async def run(self, message, session):
+            return ChatResult(
+                response_text="Scanning web ports on 10.10.10.20",
+                proposed_command=proposed,
+            )
+
+    app.dependency_overrides[get_chat_with_ai_use_case] = lambda: MockChatUseCase()
+
+    payload = {"message": "Scan web ports on 10.10.10.20"}
+    response = client.post("/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["response"] == "Scanning web ports on 10.10.10.20"
+    assert data["has_proposed_command"] is True
+    assert data["proposed_command"]["text"] == "nmap -sS -p 80,443 10.10.10.20"
+    assert data["proposed_command"]["target"] == "10.10.10.20"
+    assert data["proposed_command"]["origin"] == "AI"
+
+    app.dependency_overrides.clear()
+
+
+def test_chat_endpoint_rate_limit_handling(client: TestClient) -> None:
+    """Verifies POST /chat translates RateLimitError into HTTP 429."""
+    class MockFailingChatUseCase:
+        async def run(self, message, session):
+            mock_response = httpx.Response(status_code=429, request=httpx.Request("POST", "https://api.anthropic.com"))
+            raise anthropic.RateLimitError(
+                message="Rate limit exceeded",
+                response=mock_response,
+                body=None,
+            )
+
+    app.dependency_overrides[get_chat_with_ai_use_case] = lambda: MockFailingChatUseCase()
+
+    response = client.post("/chat", json={"message": "Hello"})
+    assert response.status_code == 429
+    assert "rate limit exceeded" in response.json()["detail"].lower()
+
+    app.dependency_overrides.clear()
+
+
+def test_chat_endpoint_service_unavailable_handling(client: TestClient) -> None:
+    """Verifies POST /chat translates APIConnectionError into HTTP 503."""
+    class MockFailingChatUseCase:
+        async def run(self, message, session):
+            mock_request = httpx.Request("POST", "https://api.anthropic.com")
+            raise anthropic.APIConnectionError(
+                message="Connection refused",
+                request=mock_request,
+            )
+
+    app.dependency_overrides[get_chat_with_ai_use_case] = lambda: MockFailingChatUseCase()
+
+    response = client.post("/chat", json={"message": "Hello"})
+    assert response.status_code == 503
+    assert "temporarily unavailable" in response.json()["detail"].lower()
 
     app.dependency_overrides.clear()
