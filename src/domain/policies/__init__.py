@@ -13,6 +13,8 @@ from src.domain.policies.risk_classifier import (
     classify_command_risk,
     DEFAULT_RISK_PATTERNS,
 )
+from src.domain.policies.validator import validate_command
+from src.domain.value_objects.policy_decision import PolicyDecision
 
 __all__ = [
     "DEFAULT_BLACKLIST_RULES",
@@ -25,4 +27,6 @@ __all__ = [
     "CommandRiskClassifier",
     "classify_command_risk",
     "DEFAULT_RISK_PATTERNS",
+    "validate_command",
+    "PolicyDecision",
 ]
