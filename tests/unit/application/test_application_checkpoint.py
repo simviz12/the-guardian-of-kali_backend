@@ -163,7 +163,7 @@ def test_evaluate_policy_blocks_critical_commands_in_autonomous_mode() -> None:
 
 
 def test_evaluate_policy_manual_mode_returns_block_action() -> None:
-    """Verifies that manual operator commands matching block rules return BLOCK action rather than raising."""
+    """Verifies that AI commands matching block rules return BLOCK action in manual/suggestion mode rather than raising."""
     rules = [
         PolicyRule(
             id="rule-block-dd",
@@ -174,7 +174,7 @@ def test_evaluate_policy_manual_mode_returns_block_action() -> None:
     ]
     use_case = EvaluatePolicyUseCase(rules=rules)
     session = Session(user="carlos", is_autonomous=False)
-    cmd = Command(text="dd if=/dev/zero of=/dev/sda", origin=CommandOrigin.MANUAL_USER)
+    cmd = Command(text="dd if=/dev/zero of=/dev/sda", origin=CommandOrigin.AI)
 
     action = use_case.evaluate(command=cmd, session=session)
 

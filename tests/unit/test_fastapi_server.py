@@ -113,6 +113,42 @@ def test_execute_endpoint_validation_error(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_execute_endpoint_blocks_destructive_ai_command(client: TestClient) -> None:
+    """Verifies POST /execute returns HTTP 403 when an AI command is blocked by policy gate."""
+    payload = {
+        "command": "rm -rf /",
+        "origin": "AI",
+    }
+    response = client.post("/execute", json=payload)
+    assert response.status_code == 403
+    assert "Blocked by destructive blacklist rule" in response.json()["detail"]
+
+
+def test_execute_endpoint_allows_destructive_manual_user_command_bypassing_ai_gate(client: TestClient) -> None:
+    """Verifies that manual user commands bypass the AI policy gate (operator responsibility)."""
+    class MockExecuteUseCase:
+        async def run(self, command, session):
+            return CommandResult(
+                command_text=command.text,
+                exit_code=0,
+                stdout="manual command executed\n",
+                stderr="",
+                duration_ms=10.0,
+            )
+
+    app.dependency_overrides[get_execute_command_use_case] = lambda: MockExecuteUseCase()
+
+    payload = {
+        "command": "rm -rf /tmp/test",
+        "origin": "MANUAL_USER",
+    }
+    response = client.post("/execute", json=payload)
+    assert response.status_code == 200
+    assert response.json()["stdout"] == "manual command executed\n"
+
+    app.dependency_overrides.clear()
+
+
 def test_history_endpoint_success(client: TestClient) -> None:
     """Verifies GET /history returns list of commands with count."""
     sample_time = datetime.now(timezone.utc)

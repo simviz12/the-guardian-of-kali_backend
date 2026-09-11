@@ -12,7 +12,26 @@ from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 
 
 def test_evaluate_policy_blocks_in_manual_mode() -> None:
-    """Verifies that a BLOCK rule returns PolicyAction.BLOCK in manual session mode."""
+    """Verifies that a BLOCK rule returns PolicyAction.BLOCK for AI commands in manual/suggestion session mode."""
+    block_rule = PolicyRule(
+        id="block-rm",
+        pattern=r"\brm\s+-rf\b",
+        risk_level=RiskLevel.BLOCKED,
+        action=PolicyAction.BLOCK,
+    )
+    use_case = EvaluatePolicyUseCase(rules=[block_rule])
+
+    session = Session(user="carlos", is_autonomous=False)
+    cmd = Command(text="rm -rf /", origin=CommandOrigin.AI)
+
+    decision = use_case.evaluate(command=cmd, session=session)
+
+    assert decision == PolicyAction.BLOCK
+    assert cmd.risk_level == RiskLevel.BLOCKED
+
+
+def test_evaluate_policy_skips_filter_for_manual_user() -> None:
+    """Verifies that commands with origin='MANUAL_USER' skip policy filters (user direct responsibility)."""
     block_rule = PolicyRule(
         id="block-rm",
         pattern=r"\brm\s+-rf\b",
@@ -25,9 +44,11 @@ def test_evaluate_policy_blocks_in_manual_mode() -> None:
     cmd = Command(text="rm -rf /", origin=CommandOrigin.MANUAL_USER)
 
     decision = use_case.evaluate(command=cmd, session=session)
+    rich_decision = use_case.evaluate_decision(command=cmd, session=session)
 
-    assert decision == PolicyAction.BLOCK
-    assert cmd.risk_level == RiskLevel.BLOCKED
+    assert decision == PolicyAction.AUTO_EXECUTE
+    assert rich_decision.action == PolicyAction.AUTO_EXECUTE
+    assert "bypassed AI policy gate" in rich_decision.reason
 
 
 def test_evaluate_policy_raises_exception_in_autonomous_mode() -> None:

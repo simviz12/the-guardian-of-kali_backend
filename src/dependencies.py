@@ -35,20 +35,18 @@ def get_ai_gateway() -> AIGateway:
     return ClaudeAIGateway()
 
 
+def get_evaluate_policy_use_case() -> EvaluatePolicyUseCase:
+    """Provides the EvaluatePolicyUseCase with central policy validation."""
+    return EvaluatePolicyUseCase()
+
+
 def get_execute_command_use_case() -> ExecuteCommandUseCase:
-    """Provides the ExecuteCommandUseCase with injected dependencies."""
+    """Provides the ExecuteCommandUseCase with injected dependencies and mandatory policy evaluator."""
     return ExecuteCommandUseCase(
         executor=get_shell_executor(),
         repository=get_session_repository(),
+        policy_evaluator=get_evaluate_policy_use_case(),
     )
-
-
-from src.domain.policies.policy_rules import DEFAULT_BLACKLIST_RULES
-
-
-def get_evaluate_policy_use_case() -> EvaluatePolicyUseCase:
-    """Provides the EvaluatePolicyUseCase with configured default blacklist rules."""
-    return EvaluatePolicyUseCase(rules=DEFAULT_BLACKLIST_RULES)
 
 
 def get_chat_with_ai_use_case() -> ChatWithAIUseCase:
