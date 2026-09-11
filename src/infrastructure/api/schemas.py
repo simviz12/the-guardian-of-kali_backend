@@ -53,3 +53,36 @@ class HistoryResponse(BaseModel):
 
     count: int = Field(..., description="Number of commands returned.")
     commands: List[CommandHistoryItem] = Field(..., description="List of command history items.")
+
+
+class ChatRequest(BaseModel):
+    """Payload schema for POST /chat."""
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(..., min_length=1, description="Operator prompt or instruction for the AI.")
+    session_id: Optional[UUID] = Field(
+        None,
+        description="Optional session UUID. A new session context is instantiated if omitted.",
+    )
+
+
+class ProposedCommandSchema(BaseModel):
+    """Schema for AI proposed commands."""
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(..., description="Proposed terminal command text.")
+    target: Optional[str] = Field(None, description="Target host or IP.")
+    origin: CommandOrigin = Field(default=CommandOrigin.AI, description="Command origin.")
+
+
+class ChatResponse(BaseModel):
+    """Response schema for POST /chat."""
+    model_config = ConfigDict(extra="forbid")
+
+    response: str = Field(..., description="Conversational explanation or guidance from Claude.")
+    has_proposed_command: bool = Field(..., description="True if a terminal command is proposed.")
+    proposed_command: Optional[ProposedCommandSchema] = Field(
+        None,
+        description="Structured proposed command details.",
+    )
+    session_id: UUID = Field(..., description="Active session context UUID.")

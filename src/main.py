@@ -1,9 +1,11 @@
 """FastAPI application entrypoint for The Guardian of Kali backend service."""
 from datetime import datetime
+import logging
 from typing import Dict, Any, List, Optional
 from uuid import UUID
+import anthropic
 import uvicorn
-from fastapi import FastAPI, Depends, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.domain.entities.command import Command
@@ -18,6 +20,9 @@ from src.infrastructure.api.schemas import (
     ExecuteCommandResponse,
     CommandHistoryItem,
     HistoryResponse,
+    ChatRequest,
+    ChatResponse,
+    ProposedCommandSchema,
 )
 from src.dependencies import (
     get_execute_command_use_case,
@@ -26,12 +31,14 @@ from src.dependencies import (
     get_session_history_use_case,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def create_app() -> FastAPI:
     """Creates and configures the FastAPI application instance.
 
     Configures CORS restricted to local Electron origins and mounts health check,
-    execution, history, and dependency injection endpoints.
+    execution, history, chat, and dependency injection endpoints.
 
     Returns:
         FastAPI: The configured application instance.
@@ -135,6 +142,64 @@ def create_app() -> FastAPI:
         return HistoryResponse(
             count=len(items),
             commands=items,
+        )
+
+    @app.post(
+        "/chat",
+        response_model=ChatResponse,
+        status_code=status.HTTP_200_OK,
+        tags=["AI Co-Pilot"],
+    )
+    async def chat_with_ai(
+        payload: ChatRequest,
+        chat_use_case: ChatWithAIUseCase = Depends(get_chat_with_ai_use_case),
+    ) -> ChatResponse:
+        """Sends an operator prompt to the AI co-pilot with session history and returns advice / proposed commands.
+
+        Catches Anthropic rate limits and API errors gracefully returning appropriate HTTP statuses.
+        """
+        session = Session(user="carlos", id=payload.session_id) if payload.session_id else Session(user="carlos")
+
+        try:
+            chat_result = await chat_use_case.run(message=payload.message, session=session)
+        except anthropic.RateLimitError as exc:
+            logger.error(f"Claude API rate limit reached: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI service rate limit exceeded. Please wait a moment before trying again.",
+            ) from exc
+        except (anthropic.APIConnectionError, anthropic.InternalServerError) as exc:
+            logger.error(f"Claude API transient error: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"AI co-pilot service temporarily unavailable: {str(exc)}",
+            ) from exc
+        except anthropic.APIError as exc:
+            logger.error(f"Claude API error: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Error communicating with AI service: {str(exc)}",
+            ) from exc
+        except Exception as exc:
+            logger.error(f"Unexpected chat processing error: {str(exc)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An internal error occurred while processing the chat request.",
+            ) from exc
+
+        proposed_command_schema = None
+        if chat_result.proposed_command:
+            proposed_command_schema = ProposedCommandSchema(
+                text=chat_result.proposed_command.text,
+                target=chat_result.proposed_command.target,
+                origin=chat_result.proposed_command.origin,
+            )
+
+        return ChatResponse(
+            response=chat_result.response_text,
+            has_proposed_command=chat_result.has_proposed_command,
+            proposed_command=proposed_command_schema,
+            session_id=session.id,
         )
 
     @app.get("/api/di-check", status_code=status.HTTP_200_OK, tags=["Diagnostic"])
