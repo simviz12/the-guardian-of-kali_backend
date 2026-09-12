@@ -1,4 +1,5 @@
 """Value object representing the risk level classification of a command."""
+
 from enum import Enum
 
 

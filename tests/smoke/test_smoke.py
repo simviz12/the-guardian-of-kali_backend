@@ -8,21 +8,20 @@ Quickly verifies:
 5. Inviolable policy guardrail blocks destructive payload immediately.
 6. Target scope enforcement blocks out-of-scope executions.
 """
-from fastapi.testclient import TestClient
-import pytest
 
-from src.main import create_app
-from src.application.dtos.responses import CommandResult
-from src.domain.value_objects.risk_level import RiskLevel
+import pytest
+from fastapi.testclient import TestClient
+
 from src.dependencies import (
-    get_execute_command_use_case,
-    get_evaluate_policy_use_case,
-    get_chat_with_ai_use_case,
-    get_session_history_use_case,
-    get_shell_executor,
-    get_session_repository,
     get_ai_gateway,
+    get_chat_with_ai_use_case,
+    get_evaluate_policy_use_case,
+    get_execute_command_use_case,
+    get_session_history_use_case,
+    get_session_repository,
+    get_shell_executor,
 )
+from src.main import create_app
 
 
 @pytest.fixture(scope="module")

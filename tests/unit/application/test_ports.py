@@ -1,7 +1,9 @@
 """Unit tests verifying application port abstractions and DTOs."""
+
 import pytest
+
 from src.application.dtos import AIResponse, CommandResult
-from src.application.ports import AIGateway, ShellExecutor, SessionRepository
+from src.application.ports import AIGateway, SessionRepository, ShellExecutor
 
 
 def test_dtos_initialization() -> None:

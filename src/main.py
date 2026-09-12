@@ -1,36 +1,38 @@
 """FastAPI application entrypoint for The Guardian of Kali backend service."""
-from datetime import datetime
+
 import logging
-from typing import Dict, Any, List, Optional
+from datetime import datetime
+from typing import Any
 from uuid import UUID
+
 import anthropic
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
+from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.dependencies import (
+    get_chat_with_ai_use_case,
+    get_evaluate_policy_use_case,
+    get_execute_command_use_case,
+    get_session_history_use_case,
+)
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
-from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.exceptions import CommandBlockedException, TargetNotAuthorizedException
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
-from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.domain.value_objects.risk_level import RiskLevel
 from src.infrastructure.api.schemas import (
-    ExecuteCommandRequest,
-    ExecuteCommandResponse,
-    CommandHistoryItem,
-    HistoryResponse,
     ChatRequest,
     ChatResponse,
+    CommandHistoryItem,
+    ExecuteCommandRequest,
+    ExecuteCommandResponse,
+    HistoryResponse,
     ProposedCommandSchema,
-)
-from src.dependencies import (
-    get_execute_command_use_case,
-    get_evaluate_policy_use_case,
-    get_chat_with_ai_use_case,
-    get_session_history_use_case,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,8 +57,8 @@ def create_app() -> FastAPI:
     allowed_origins = [
         "http://localhost:5173",  # Vite dev server default
         "http://127.0.0.1:5173",
-        "app://-",                # Electron production custom protocol
-        "file://",                # Electron local file rendering
+        "app://-",  # Electron production custom protocol
+        "file://",  # Electron local file rendering
     ]
 
     app.add_middleware(
@@ -68,7 +70,7 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/health", status_code=status.HTTP_200_OK, tags=["Health"])
-    async def health_check() -> Dict[str, Any]:
+    async def health_check() -> dict[str, Any]:
         """Performs a service health check."""
         return {
             "status": "healthy",
@@ -88,13 +90,16 @@ def create_app() -> FastAPI:
     ) -> ExecuteCommandResponse:
         """Executes a terminal command via the injected ExecuteCommandUseCase and records it."""
         session_id = payload.session_id
-        targets = [Target(value=t) for t in payload.authorized_targets] if payload.authorized_targets else []
+        targets = (
+            [Target(value=t) for t in payload.authorized_targets]
+            if payload.authorized_targets
+            else []
+        )
         session = (
             Session(user="ia-user", id=session_id, authorized_targets=targets)
             if session_id
             else Session(user="ia-user", authorized_targets=targets)
         )
-
 
         command_entity = Command(
             text=payload.command,
@@ -126,11 +131,11 @@ def create_app() -> FastAPI:
         tags=["Audit & History"],
     )
     async def get_history(
-        session_id: Optional[UUID] = Query(None, description="Filter by session UUID"),
-        user: Optional[str] = Query(None, description="Filter by session user"),
-        start_date: Optional[datetime] = Query(None, description="Start date filter (inclusive)"),
-        end_date: Optional[datetime] = Query(None, description="End date filter (inclusive)"),
-        risk_level: Optional[RiskLevel] = Query(None, description="Filter by risk level"),
+        session_id: UUID | None = Query(None, description="Filter by session UUID"),
+        user: str | None = Query(None, description="Filter by session user"),
+        start_date: datetime | None = Query(None, description="Start date filter (inclusive)"),
+        end_date: datetime | None = Query(None, description="End date filter (inclusive)"),
+        risk_level: RiskLevel | None = Query(None, description="Filter by risk level"),
         history_use_case: GetSessionHistoryUseCase = Depends(get_session_history_use_case),
     ) -> HistoryResponse:
         """Queries historical executed commands with optional date range, user, or risk filters."""
@@ -172,30 +177,34 @@ def create_app() -> FastAPI:
 
         Catches Anthropic rate limits and API errors gracefully returning appropriate HTTP statuses.
         """
-        session = Session(user="carlos", id=payload.session_id) if payload.session_id else Session(user="carlos")
+        session = (
+            Session(user="carlos", id=payload.session_id)
+            if payload.session_id
+            else Session(user="carlos")
+        )
 
         try:
             chat_result = await chat_use_case.run(message=payload.message, session=session)
         except anthropic.RateLimitError as exc:
-            logger.error(f"Claude API rate limit reached: {str(exc)}")
+            logger.error(f"Claude API rate limit reached: {exc!s}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="AI service rate limit exceeded. Please wait a moment before trying again.",
             ) from exc
         except (anthropic.APIConnectionError, anthropic.InternalServerError) as exc:
-            logger.error(f"Claude API transient error: {str(exc)}")
+            logger.error(f"Claude API transient error: {exc!s}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"AI co-pilot service temporarily unavailable: {str(exc)}",
+                detail=f"AI co-pilot service temporarily unavailable: {exc!s}",
             ) from exc
         except anthropic.APIError as exc:
-            logger.error(f"Claude API error: {str(exc)}")
+            logger.error(f"Claude API error: {exc!s}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Error communicating with AI service: {str(exc)}",
+                detail=f"Error communicating with AI service: {exc!s}",
             ) from exc
         except Exception as exc:
-            logger.error(f"Unexpected chat processing error: {str(exc)}")
+            logger.error(f"Unexpected chat processing error: {exc!s}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An internal error occurred while processing the chat request.",
@@ -222,7 +231,7 @@ def create_app() -> FastAPI:
         evaluate_use_case: EvaluatePolicyUseCase = Depends(get_evaluate_policy_use_case),
         chat_use_case: ChatWithAIUseCase = Depends(get_chat_with_ai_use_case),
         history_use_case: GetSessionHistoryUseCase = Depends(get_session_history_use_case),
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Diagnostic route verifying dependency injection of application use cases."""
         return {
             "execute_use_case": execute_use_case.__class__.__name__,

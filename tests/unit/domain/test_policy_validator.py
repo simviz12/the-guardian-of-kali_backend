@@ -1,5 +1,7 @@
 """Unit tests for the central command policy validator."""
+
 import logging
+
 import pytest
 
 from src.domain.entities.command import Command
@@ -42,6 +44,7 @@ def autonomous_session() -> Session:
 # ============================================================================
 # 1. Blacklist and Destructive Command Blocking Tests
 # ============================================================================
+
 
 @pytest.mark.parametrize(
     "destructive_cmd",
@@ -105,6 +108,7 @@ def test_empty_or_whitespace_command_blocked(suggestion_session: Session) -> Non
 # 2. Target Scope Authorization Tests
 # ============================================================================
 
+
 def test_unauthorized_target_in_command_entity_is_blocked(suggestion_session: Session) -> None:
     cmd = Command(
         text="nmap -sn 8.8.8.8",
@@ -154,6 +158,7 @@ def test_authorized_target_proceeds_to_mode_evaluation(suggestion_session: Sessi
 # Everything above LOW requires confirmation; LOW auto-executes.
 # ============================================================================
 
+
 def test_suggestion_mode_low_risk_auto_executes(suggestion_session: Session) -> None:
     cmd = Command(text="whois hackthebox.com", origin=CommandOrigin.AI)
     decision = validate_command(cmd, suggestion_session)
@@ -173,7 +178,9 @@ def test_suggestion_mode_medium_risk_requires_confirmation(suggestion_session: S
 
 
 def test_suggestion_mode_high_risk_requires_confirmation(suggestion_session: Session) -> None:
-    cmd = Command(text="sqlmap -u http://10.10.10.10/vuln.php?id=1 --batch", origin=CommandOrigin.AI)
+    cmd = Command(
+        text="sqlmap -u http://10.10.10.10/vuln.php?id=1 --batch", origin=CommandOrigin.AI
+    )
     decision = validate_command(cmd, suggestion_session)
 
     assert decision.action == PolicyAction.REQUIRE_CONFIRMATION
@@ -185,6 +192,7 @@ def test_suggestion_mode_high_risk_requires_confirmation(suggestion_session: Ses
 # 4. Autonomous Mode Tests (is_autonomous=True)
 # LOW and MEDIUM auto-execute, HIGH always requires confirmation.
 # ============================================================================
+
 
 def test_autonomous_mode_low_risk_auto_executes(autonomous_session: Session) -> None:
     cmd = Command(text="dig hackthebox.com", origin=CommandOrigin.AI)
@@ -204,18 +212,27 @@ def test_autonomous_mode_medium_risk_auto_executes(autonomous_session: Session) 
     assert "Autonomous mode: MEDIUM risk command permitted for auto-execution" in decision.reason
 
 
-def test_autonomous_mode_high_risk_always_requires_confirmation(autonomous_session: Session) -> None:
-    cmd = Command(text="hydra -l admin -P /usr/share/wordlists/rockyou.txt 10.10.10.10 ssh", origin=CommandOrigin.AI)
+def test_autonomous_mode_high_risk_always_requires_confirmation(
+    autonomous_session: Session,
+) -> None:
+    cmd = Command(
+        text="hydra -l admin -P /usr/share/wordlists/rockyou.txt 10.10.10.10 ssh",
+        origin=CommandOrigin.AI,
+    )
     decision = validate_command(cmd, autonomous_session)
 
     assert decision.action == PolicyAction.REQUIRE_CONFIRMATION
     assert decision.risk_level == RiskLevel.HIGH
-    assert "Autonomous mode: HIGH risk command strictly requires operator confirmation" in decision.reason
+    assert (
+        "Autonomous mode: HIGH risk command strictly requires operator confirmation"
+        in decision.reason
+    )
 
 
 # ============================================================================
 # 5. Logging and Triggering Reason Verification
 # ============================================================================
+
 
 def test_every_decision_logs_exact_triggering_reason(
     caplog: pytest.LogCaptureFixture, suggestion_session: Session

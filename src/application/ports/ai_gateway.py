@@ -1,6 +1,7 @@
 """Abstract interface for AI model gateways."""
+
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 from src.application.dtos.responses import AIResponse
 
@@ -9,11 +10,7 @@ class AIGateway(ABC):
     """Port defining operations for communicating with AI co-pilots and models."""
 
     @abstractmethod
-    async def send_message(
-        self,
-        prompt: str,
-        history: List[Dict[str, Any]]
-    ) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         """Sends a natural language prompt with session history to the AI model.
 
         Args:

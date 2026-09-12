@@ -1,11 +1,12 @@
 """Use case for interacting with the AI co-pilot and interpreting proposed commands."""
-from typing import Any, Dict, List, Optional
 
+from typing import Any
+
+from src.application.dtos.responses import ChatResult
+from src.application.ports.ai_gateway import AIGateway
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.value_objects.command_origin import CommandOrigin
-from src.application.ports.ai_gateway import AIGateway
-from src.application.dtos.responses import ChatResult
 
 
 class ChatWithAIUseCase:
@@ -37,7 +38,7 @@ class ChatWithAIUseCase:
             ChatResult: Conversational text and proposed command entity (if any).
         """
         # Format recent session commands as contextual history for the AI
-        history: List[Dict[str, Any]] = [
+        history: list[dict[str, Any]] = [
             {
                 "role": "system",
                 "content": f"Executed command: '{cmd.text}' (origin: {cmd.origin.value})",
@@ -49,7 +50,7 @@ class ChatWithAIUseCase:
         ai_response = await self._ai_gateway.send_message(prompt=message, history=history)
 
         # Interpret whether the AI proposed a command
-        proposed_command: Optional[Command] = None
+        proposed_command: Command | None = None
         if ai_response.suggested_command:
             primary_target = (
                 session.authorized_targets[0].value if session.authorized_targets else None

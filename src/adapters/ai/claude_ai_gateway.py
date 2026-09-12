@@ -1,8 +1,10 @@
 """Claude AI Gateway adapter implementing AIGateway using Anthropic's official Python SDK."""
+
 import asyncio
-import os
 import logging
-from typing import Any, Dict, List, Optional
+import os
+from typing import Any
+
 import anthropic
 
 from src.application.dtos.responses import AIResponse
@@ -11,7 +13,7 @@ from src.infrastructure.config.system_prompt import KALI_GUARDIAN_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
-PROPOSE_COMMAND_TOOL: Dict[str, Any] = {
+PROPOSE_COMMAND_TOOL: dict[str, Any] = {
     "name": "propose_command",
     "description": "Proposes an offensive or defensive cybersecurity command to run in Kali Linux for ethical hacking or CTFs.",
     "input_schema": {
@@ -47,10 +49,10 @@ class ClaudeAIGateway(AIGateway):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "claude-3-5-sonnet-20241022",
         system_prompt: str = KALI_GUARDIAN_SYSTEM_PROMPT,
-        client: Optional[anthropic.AsyncAnthropic] = None,
+        client: anthropic.AsyncAnthropic | None = None,
         max_retries: int = 3,
     ) -> None:
         """Initializes the Claude AI gateway adapter.
@@ -64,13 +66,15 @@ class ClaudeAIGateway(AIGateway):
         """
         self._model = model
         self._system_prompt = system_prompt
-        self._client = client or anthropic.AsyncAnthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy-key"))
+        self._client = client or anthropic.AsyncAnthropic(
+            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy-key")
+        )
         self._max_retries = max_retries
 
     async def send_message(
         self,
         prompt: str,
-        history: List[Dict[str, Any]],
+        history: list[dict[str, Any]],
     ) -> AIResponse:
         """Sends user prompt and historical turns to Claude, interpreting tool_use blocks or text.
 
@@ -88,7 +92,7 @@ class ClaudeAIGateway(AIGateway):
             anthropic.APIError: If Claude API failure persists after max retries.
         """
         # Convert internal history format to Anthropic messages
-        messages: List[Dict[str, Any]] = []
+        messages: list[dict[str, Any]] = []
 
         for item in history:
             role = item.get("role", "user")
@@ -103,10 +107,10 @@ class ClaudeAIGateway(AIGateway):
         # Execute API call with exponential backoff for rate limits and transient errors
         response = await self._call_with_retry(messages)
 
-        text_content_parts: List[str] = []
-        suggested_command: Optional[str] = None
-        tool_justification: Optional[str] = None
-        tool_target: Optional[str] = None
+        text_content_parts: list[str] = []
+        suggested_command: str | None = None
+        tool_justification: str | None = None
+        tool_target: str | None = None
 
         # Inspect response content blocks (Text and ToolUse)
         for block in response.content:
@@ -140,7 +144,7 @@ class ClaudeAIGateway(AIGateway):
             metadata=metadata,
         )
 
-    async def _call_with_retry(self, messages: List[Dict[str, Any]]) -> Any:
+    async def _call_with_retry(self, messages: list[dict[str, Any]]) -> Any:
         """Executes the Anthropic messages.create call with exponential backoff on retryable errors."""
         delay = 1.0  # initial delay in seconds
 
@@ -153,12 +157,16 @@ class ClaudeAIGateway(AIGateway):
                     tools=[PROPOSE_COMMAND_TOOL],
                     max_tokens=1024,
                 )
-            except (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError) as exc:
+            except (
+                anthropic.RateLimitError,
+                anthropic.InternalServerError,
+                anthropic.APIConnectionError,
+            ) as exc:
                 if attempt == self._max_retries:
-                    logger.error(f"Claude API failed after {attempt} attempts: {str(exc)}")
+                    logger.error(f"Claude API failed after {attempt} attempts: {exc!s}")
                     raise
                 logger.warning(
-                    f"Transient Claude API error (attempt {attempt}/{self._max_retries}): {str(exc)}. Retrying in {delay}s..."
+                    f"Transient Claude API error (attempt {attempt}/{self._max_retries}): {exc!s}. Retrying in {delay}s..."
                 )
                 await asyncio.sleep(delay)
                 delay *= 2.0  # exponential backoff

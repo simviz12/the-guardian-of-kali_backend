@@ -1,5 +1,7 @@
 """Value object representing the evaluated policy decision for a command."""
+
 from dataclasses import dataclass
+
 from src.domain.value_objects.policy_action import PolicyAction
 from src.domain.value_objects.risk_level import RiskLevel
 

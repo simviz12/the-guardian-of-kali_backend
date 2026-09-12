@@ -12,7 +12,9 @@ class DomainException(Exception):
 class CommandBlockedException(DomainException):
     """Raised when a command violates safety policy or blacklist rules."""
 
-    def __init__(self, command: str, reason: str = "Command execution blocked by security policy") -> None:
+    def __init__(
+        self, command: str, reason: str = "Command execution blocked by security policy"
+    ) -> None:
         super().__init__(f"{reason}: '{command}'")
         self.command = command
         self.reason = reason
@@ -21,7 +23,9 @@ class CommandBlockedException(DomainException):
 class TargetNotAuthorizedException(DomainException):
     """Raised when an operation targets an unauthorized host, IP, or network range."""
 
-    def __init__(self, target: str, reason: str = "Target is not within authorized session scope") -> None:
+    def __init__(
+        self, target: str, reason: str = "Target is not within authorized session scope"
+    ) -> None:
         super().__init__(f"{reason}: '{target}'")
         self.target = target
         self.reason = reason

@@ -1,12 +1,14 @@
 """Unit tests for the WSLShellExecutor adapter."""
+
 import subprocess
 from unittest.mock import MagicMock, patch
+
 import pytest
 
-from src.domain.entities.command import Command
-from src.domain.value_objects.command_origin import CommandOrigin
 from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.application.ports.shell_executor import ShellExecutor
+from src.domain.entities.command import Command
+from src.domain.value_objects.command_origin import CommandOrigin
 
 
 def test_wsl_shell_executor_implements_interface() -> None:
@@ -70,7 +72,9 @@ async def test_execute_command_timeout_clean_termination() -> None:
     executor = WSLShellExecutor(timeout_seconds=2.0)
     command = Command(text="sleep 100", origin=CommandOrigin.AI)
 
-    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["wsl.exe"], timeout=2.0)):
+    with patch(
+        "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["wsl.exe"], timeout=2.0)
+    ):
         result = await executor.execute(command)
 
         assert result.command_text == "sleep 100"

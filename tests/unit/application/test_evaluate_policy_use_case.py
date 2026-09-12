@@ -1,14 +1,15 @@
 """Unit tests verifying EvaluatePolicyUseCase rule matching and autonomous mode enforcement."""
+
 import pytest
 
-from src.domain.entities.command import Command
-from src.domain.entities.session import Session
-from src.domain.entities.policy_rule import PolicyRule
-from src.domain.value_objects.command_origin import CommandOrigin
-from src.domain.value_objects.risk_level import RiskLevel
-from src.domain.value_objects.policy_action import PolicyAction
-from src.domain.exceptions import CommandBlockedException
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.domain.entities.command import Command
+from src.domain.entities.policy_rule import PolicyRule
+from src.domain.entities.session import Session
+from src.domain.exceptions import CommandBlockedException
+from src.domain.value_objects.command_origin import CommandOrigin
+from src.domain.value_objects.policy_action import PolicyAction
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 def test_evaluate_policy_blocks_in_manual_mode() -> None:

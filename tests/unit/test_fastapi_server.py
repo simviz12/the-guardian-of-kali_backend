@@ -1,23 +1,22 @@
 """Unit and integration tests for FastAPI application server, CORS, DI, /execute, /history, and /chat."""
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock
-import pytest
-from fastapi.testclient import TestClient
-from uuid import uuid4
+
+from datetime import UTC, datetime
+
 import anthropic
 import httpx
+import pytest
+from fastapi.testclient import TestClient
 
-from src.main import app, create_app
+from src.application.dtos.responses import ChatResult, CommandResult
 from src.dependencies import (
-    get_execute_command_use_case,
-    get_evaluate_policy_use_case,
     get_chat_with_ai_use_case,
+    get_execute_command_use_case,
     get_session_history_use_case,
 )
 from src.domain.entities.command import Command
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.risk_level import RiskLevel
-from src.application.dtos.responses import CommandResult, ChatResult
+from src.main import app
 
 
 @pytest.fixture
@@ -74,6 +73,7 @@ def test_cors_disallowed_origin(client: TestClient) -> None:
 
 def test_execute_endpoint_success(client: TestClient) -> None:
     """Verifies POST /execute processes payload and returns structured response."""
+
     class MockExecuteUseCase:
         async def run(self, command, session):
             return CommandResult(
@@ -137,9 +137,11 @@ def test_execute_endpoint_blocks_unauthorized_target(client: TestClient) -> None
     assert "not within authorized session scope" in response.json()["detail"].lower()
 
 
-
-def test_execute_endpoint_allows_destructive_manual_user_command_bypassing_ai_gate(client: TestClient) -> None:
+def test_execute_endpoint_allows_destructive_manual_user_command_bypassing_ai_gate(
+    client: TestClient,
+) -> None:
     """Verifies that manual user commands bypass the AI policy gate (operator responsibility)."""
+
     class MockExecuteUseCase:
         async def run(self, command, session):
             return CommandResult(
@@ -165,7 +167,7 @@ def test_execute_endpoint_allows_destructive_manual_user_command_bypassing_ai_ga
 
 def test_history_endpoint_success(client: TestClient) -> None:
     """Verifies GET /history returns list of commands with count."""
-    sample_time = datetime.now(timezone.utc)
+    sample_time = datetime.now(UTC)
     mock_cmd = Command(
         text="nmap -sV 10.10.10.1",
         origin=CommandOrigin.AI,
@@ -175,7 +177,9 @@ def test_history_endpoint_success(client: TestClient) -> None:
     )
 
     class MockHistoryUseCase:
-        async def run(self, session_id=None, user=None, start_date=None, end_date=None, risk_level=None):
+        async def run(
+            self, session_id=None, user=None, start_date=None, end_date=None, risk_level=None
+        ):
             return [mock_cmd]
 
     app.dependency_overrides[get_session_history_use_case] = lambda: MockHistoryUseCase()
@@ -193,6 +197,7 @@ def test_history_endpoint_success(client: TestClient) -> None:
 
 def test_chat_endpoint_plain_response(client: TestClient) -> None:
     """Verifies POST /chat returns conversational guidance without tool proposal."""
+
     class MockChatUseCase:
         async def run(self, message, session):
             return ChatResult(
@@ -246,9 +251,12 @@ def test_chat_endpoint_with_proposed_command(client: TestClient) -> None:
 
 def test_chat_endpoint_rate_limit_handling(client: TestClient) -> None:
     """Verifies POST /chat translates RateLimitError into HTTP 429."""
+
     class MockFailingChatUseCase:
         async def run(self, message, session):
-            mock_response = httpx.Response(status_code=429, request=httpx.Request("POST", "https://api.anthropic.com"))
+            mock_response = httpx.Response(
+                status_code=429, request=httpx.Request("POST", "https://api.anthropic.com")
+            )
             raise anthropic.RateLimitError(
                 message="Rate limit exceeded",
                 response=mock_response,
@@ -266,6 +274,7 @@ def test_chat_endpoint_rate_limit_handling(client: TestClient) -> None:
 
 def test_chat_endpoint_service_unavailable_handling(client: TestClient) -> None:
     """Verifies POST /chat translates APIConnectionError into HTTP 503."""
+
     class MockFailingChatUseCase:
         async def run(self, message, session):
             mock_request = httpx.Request("POST", "https://api.anthropic.com")

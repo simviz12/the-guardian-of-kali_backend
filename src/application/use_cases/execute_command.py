@@ -1,16 +1,16 @@
 """Use case for executing a command in the terminal and recording it in the session."""
-import time
-from typing import Optional
 
+import time
+
+from src.application.dtos.responses import CommandResult
+from src.application.ports.session_repository import SessionRepository
+from src.application.ports.shell_executor import ShellExecutor
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
+from src.domain.exceptions import CommandBlockedException
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.policy_action import PolicyAction
-from src.domain.exceptions import CommandBlockedException
-from src.application.ports.shell_executor import ShellExecutor
-from src.application.ports.session_repository import SessionRepository
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.application.dtos.responses import CommandResult
 
 
 class ExecuteCommandUseCase:
@@ -31,7 +31,7 @@ class ExecuteCommandUseCase:
         self,
         executor: ShellExecutor,
         repository: SessionRepository,
-        policy_evaluator: Optional[EvaluatePolicyUseCase] = None,
+        policy_evaluator: EvaluatePolicyUseCase | None = None,
     ) -> None:
         """Initializes the use case via constructor dependency injection.
 
@@ -82,7 +82,7 @@ class ExecuteCommandUseCase:
                 command_text=command.text,
                 exit_code=1,
                 stdout="",
-                stderr=f"Execution failed due to unexpected error: {str(exc)}",
+                stderr=f"Execution failed due to unexpected error: {exc!s}",
                 duration_ms=duration,
             )
 

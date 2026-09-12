@@ -1,12 +1,12 @@
 """Adapter implementing ShellExecutor to run commands inside Kali Linux on WSL2 under ia-user."""
+
 import asyncio
 import subprocess
 import time
-from typing import Optional
 
-from src.domain.entities.command import Command
-from src.application.ports.shell_executor import ShellExecutor
 from src.application.dtos.responses import CommandResult
+from src.application.ports.shell_executor import ShellExecutor
+from src.domain.entities.command import Command
 
 
 class WSLShellExecutor(ShellExecutor):
@@ -94,10 +94,10 @@ class WSLShellExecutor(ShellExecutor):
 
         except subprocess.TimeoutExpired as exc:
             duration_ms = (time.perf_counter() - start_time) * 1000.0
-            stdout_str = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            stderr_str = (
-                f"Command timed out after {self._timeout_seconds} seconds and was cleanly terminated."
+            stdout_str = (
+                exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
             )
+            stderr_str = f"Command timed out after {self._timeout_seconds} seconds and was cleanly terminated."
 
             return CommandResult(
                 command_text=command_text,

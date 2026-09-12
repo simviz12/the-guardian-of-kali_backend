@@ -1,7 +1,7 @@
 """Domain entity representing an authorized target for ethical security testing."""
-from dataclasses import dataclass
+
 import ipaddress
-from typing import Optional, Union
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class Target:
     """
 
     value: str
-    description: Optional[str] = None
+    description: str | None = None
 
     def contains(self, ip_or_domain: str) -> bool:
         """Determines whether a given IP address or domain falls within this authorized target.
@@ -40,7 +40,7 @@ class Target:
             candidate_ip = ipaddress.ip_address(candidate)
 
             # Determine whether target is an IP network (CIDR) or single IP
-            target_network: Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+            target_network: ipaddress.IPv4Network | ipaddress.IPv6Network
             try:
                 # strict=False allows passing host addresses with CIDR masks like 192.168.1.1/24
                 target_network = ipaddress.ip_network(target_val, strict=False)

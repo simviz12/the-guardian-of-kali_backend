@@ -7,47 +7,44 @@ Validates the security policy engine against adversarial evasion techniques:
 4. Strict architectural enforcement verifying EvaluatePolicyUseCase is the sole, non-bypassable gate
    to ExecuteCommandUseCase across all endpoints and direct use case invocations.
 """
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+
+from typing import Any
+from uuid import UUID
+
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
+from src.application.dtos.responses import AIResponse, CommandResult
+from src.application.ports.ai_gateway import AIGateway
+from src.application.ports.session_repository import SessionRepository
+from src.application.ports.shell_executor import ShellExecutor
+from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
+from src.dependencies import (
+    get_evaluate_policy_use_case,
+    get_execute_command_use_case,
+)
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
-from src.domain.entities.policy_rule import PolicyRule
+from src.domain.exceptions import CommandBlockedException
 from src.domain.policies.validator import validate_command
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.policy_action import PolicyAction
 from src.domain.value_objects.risk_level import RiskLevel
-from src.domain.exceptions import CommandBlockedException, TargetNotAuthorizedException
-from src.application.ports.shell_executor import ShellExecutor
-from src.application.ports.session_repository import SessionRepository
-from src.application.ports.ai_gateway import AIGateway
-from src.application.dtos.responses import CommandResult, AIResponse
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
-from src.dependencies import (
-    get_execute_command_use_case,
-    get_evaluate_policy_use_case,
-    get_ai_gateway,
-    get_shell_executor,
-    get_session_repository,
-)
-
+from src.main import app
 
 # ============================================================================
 # Security Test Harness & Mocks
 # ============================================================================
 
+
 class SpyingShellExecutor(ShellExecutor):
     """Monitors any execution attempt to verify blocked commands never reach the terminal shell."""
 
     def __init__(self) -> None:
-        self.executed_commands: List[Command] = []
+        self.executed_commands: list[Command] = []
 
     async def execute(self, command: Command) -> CommandResult:
         self.executed_commands.append(command)
@@ -64,13 +61,13 @@ class EphemeralSessionRepository(SessionRepository):
     """In-memory session repository tracking saved sessions and commands."""
 
     def __init__(self) -> None:
-        self.saved_sessions: Dict[UUID, Session] = {}
+        self.saved_sessions: dict[UUID, Session] = {}
 
     async def save(self, session: Session) -> None:
         self.saved_sessions[session.id] = session
 
-    async def get_history(self, filters: Dict[str, Any]) -> List[Command]:
-        commands: List[Command] = []
+    async def get_history(self, filters: dict[str, Any]) -> list[Command]:
+        commands: list[Command] = []
         for s in self.saved_sessions.values():
             commands.extend(s.commands)
         return commands
@@ -81,9 +78,9 @@ class PromptInjectingAIGateway(AIGateway):
 
     def __init__(self, malicious_payload: str) -> None:
         self.malicious_payload = malicious_payload
-        self.sent_prompts: List[str] = []
+        self.sent_prompts: list[str] = []
 
-    async def send_message(self, prompt: str, history: List[Dict[str, Any]]) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         self.sent_prompts.append(prompt)
         return AIResponse(
             content="Understood. To proceed with the assessment, execute this command:",
@@ -95,6 +92,7 @@ class PromptInjectingAIGateway(AIGateway):
 # ============================================================================
 # 1. Adversarial Blacklist Evasion in Autonomous Mode
 # ============================================================================
+
 
 class TestBlacklistAutonomousAdversarial:
     """Verifies that obfuscated, formatted, or variant destructive commands are strictly blocked in autonomous mode."""
@@ -174,7 +172,9 @@ class TestBlacklistAutonomousAdversarial:
         assert "destructive blacklist rule" in exc_info.value.reason
 
     @pytest.mark.asyncio
-    async def test_execute_command_use_case_refuses_to_touch_shell_for_autonomous_blacklist(self) -> None:
+    async def test_execute_command_use_case_refuses_to_touch_shell_for_autonomous_blacklist(
+        self,
+    ) -> None:
         """Confirms that ExecuteCommandUseCase aborts immediately before any shell execution occurs."""
         executor = SpyingShellExecutor()
         repo = EphemeralSessionRepository()
@@ -199,6 +199,7 @@ class TestBlacklistAutonomousAdversarial:
 # ============================================================================
 # 2. Adversarial Unauthorized Target Scope Evasion
 # ============================================================================
+
 
 class TestTargetScopeEnforcementAdversarial:
     """Verifies that attacks attempting to target out-of-scope infrastructure are blocked."""
@@ -244,7 +245,9 @@ class TestTargetScopeEnforcementAdversarial:
         assert "not within authorized session scope" in decision.reason
 
     @pytest.mark.asyncio
-    async def test_execute_use_case_blocks_unauthorized_target_without_explicit_entity_target(self) -> None:
+    async def test_execute_use_case_blocks_unauthorized_target_without_explicit_entity_target(
+        self,
+    ) -> None:
         """When Command.target is None, validate_command heuristically extracts IP and blocks if out-of-scope."""
         executor = SpyingShellExecutor()
         repo = EphemeralSessionRepository()
@@ -268,11 +271,14 @@ class TestTargetScopeEnforcementAdversarial:
 # 3. Prompt-Injection-Style Chat Bypass & Chained Command Execution
 # ============================================================================
 
+
 class TestPromptInjectionAndChatBypassAdversarial:
     """Verifies that prompt injection attempts or malicious command proposals from AI are caught at execution."""
 
     @pytest.mark.asyncio
-    async def test_chat_adversarial_prompt_injection_generates_command_but_execution_is_blocked(self) -> None:
+    async def test_chat_adversarial_prompt_injection_generates_command_but_execution_is_blocked(
+        self,
+    ) -> None:
         """Simulates an attacker tricking LLM into recommending a destructive command.
         Verifies that even if the AI suggests it, POST /execute strictly blocks it with HTTP 403.
         """
@@ -340,6 +346,7 @@ class TestPromptInjectionAndChatBypassAdversarial:
 # 4. Inviolable Gate Architecture (No Route Around the Validator)
 # ============================================================================
 
+
 class TestInviolableGateArchitectureAdversarial:
     """Verifies that no endpoint or direct caller can route around the validator for AI commands."""
 
@@ -384,7 +391,9 @@ class TestInviolableGateArchitectureAdversarial:
         for disallowed in disallowed_routes:
             assert disallowed not in route_paths, f"Found insecure route: {disallowed}"
 
-    def test_manual_user_bypasses_gate_but_ai_cannot_masquerade_without_explicit_origin(self) -> None:
+    def test_manual_user_bypasses_gate_but_ai_cannot_masquerade_without_explicit_origin(
+        self,
+    ) -> None:
         """Verifies that manual user commands skip the filter as design requires,
         while invalid or missing origins default safely or are rejected by schema validation.
         """

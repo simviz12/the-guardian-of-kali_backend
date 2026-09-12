@@ -1,2 +1,2 @@
-﻿# Package initialization marker.
+# Package initialization marker.
 

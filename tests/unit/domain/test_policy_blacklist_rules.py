@@ -1,18 +1,19 @@
 """Unit tests for policy blacklist regex patterns, default rules, and target authorization validation."""
+
 import pytest
 
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
-from src.domain.value_objects.command_origin import CommandOrigin
-from src.domain.value_objects.policy_action import PolicyAction
-from src.domain.value_objects.risk_level import RiskLevel
+from src.domain.exceptions import CommandBlockedException
 from src.domain.policies.policy_rules import (
     DEFAULT_BLACKLIST_RULES,
     is_target_authorized,
 )
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.domain.exceptions import CommandBlockedException
+from src.domain.value_objects.command_origin import CommandOrigin
+from src.domain.value_objects.policy_action import PolicyAction
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 @pytest.fixture
@@ -24,6 +25,7 @@ def policy_evaluator() -> EvaluatePolicyUseCase:
 # ============================================================================
 # Blacklist Real Command Matching Tests
 # ============================================================================
+
 
 @pytest.mark.parametrize(
     "destructive_cmd",
@@ -63,7 +65,9 @@ def policy_evaluator() -> EvaluatePolicyUseCase:
         "sudo sh",
     ],
 )
-def test_blacklist_matches_destructive_commands(policy_evaluator: EvaluatePolicyUseCase, destructive_cmd: str) -> None:
+def test_blacklist_matches_destructive_commands(
+    policy_evaluator: EvaluatePolicyUseCase, destructive_cmd: str
+) -> None:
     """Verifies that each known dangerous command matches a blacklist rule with action BLOCK."""
     session = Session(user="carlos", is_autonomous=False)
     cmd = Command(text=destructive_cmd, origin=CommandOrigin.AI)
@@ -83,7 +87,9 @@ def test_blacklist_matches_destructive_commands(policy_evaluator: EvaluatePolicy
         "iptables -F",
     ],
 )
-def test_blacklist_raises_in_autonomous_mode(policy_evaluator: EvaluatePolicyUseCase, destructive_cmd: str) -> None:
+def test_blacklist_raises_in_autonomous_mode(
+    policy_evaluator: EvaluatePolicyUseCase, destructive_cmd: str
+) -> None:
     """Verifies that blocked commands strictly raise CommandBlockedException in autonomous mode."""
     session = Session(user="carlos", is_autonomous=True)
     cmd = Command(text=destructive_cmd, origin=CommandOrigin.AI)
@@ -107,7 +113,9 @@ def test_blacklist_raises_in_autonomous_mode(policy_evaluator: EvaluatePolicyUse
         "ls -la /etc/nginx",
     ],
 )
-def test_blacklist_does_not_block_legitimate_commands(policy_evaluator: EvaluatePolicyUseCase, safe_cmd: str) -> None:
+def test_blacklist_does_not_block_legitimate_commands(
+    policy_evaluator: EvaluatePolicyUseCase, safe_cmd: str
+) -> None:
     """Verifies that legitimate pentesting or inspection commands are NOT falsely flagged as BLOCKED."""
     session = Session(user="carlos", is_autonomous=False)
     cmd = Command(text=safe_cmd, origin=CommandOrigin.AI)
@@ -120,6 +128,7 @@ def test_blacklist_does_not_block_legitimate_commands(policy_evaluator: Evaluate
 # ============================================================================
 # Target Authorization Scope Tests
 # ============================================================================
+
 
 def test_is_target_authorized_with_exact_ip() -> None:
     """Verifies target authorization matches identical IP addresses."""

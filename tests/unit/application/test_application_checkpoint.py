@@ -5,31 +5,32 @@ and SessionRepository. Tests all standard execution paths, error handling,
 exception fallbacks, and security gates with zero external dependencies
 (no WSL, no network, no database).
 """
-import pytest
-from typing import Any, Dict, List, Optional
+
+from typing import Any
 from uuid import UUID
 
+import pytest
+
+from src.application.dtos.responses import AIResponse, ChatResult, CommandResult
+from src.application.ports.ai_gateway import AIGateway
+from src.application.ports.session_repository import SessionRepository
+from src.application.ports.shell_executor import ShellExecutor
+from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.domain.entities.command import Command
+from src.domain.entities.policy_rule import PolicyRule
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
-from src.domain.entities.policy_rule import PolicyRule
-from src.domain.value_objects.command_origin import CommandOrigin
-from src.domain.value_objects.risk_level import RiskLevel
-from src.domain.value_objects.policy_action import PolicyAction
 from src.domain.exceptions import CommandBlockedException
-
-from src.application.ports.ai_gateway import AIGateway
-from src.application.ports.shell_executor import ShellExecutor
-from src.application.ports.session_repository import SessionRepository
-from src.application.dtos.responses import AIResponse, CommandResult, ChatResult
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
-
+from src.domain.value_objects.command_origin import CommandOrigin
+from src.domain.value_objects.policy_action import PolicyAction
+from src.domain.value_objects.risk_level import RiskLevel
 
 # ============================================================================
 # Pure In-Memory Fakes (Zero Dependencies)
 # ============================================================================
+
 
 class FakeAIGateway(AIGateway):
     """In-memory fake AI gateway for simulating LLM interaction and errors."""
@@ -37,15 +38,15 @@ class FakeAIGateway(AIGateway):
     def __init__(
         self,
         canned_response: str = "Assistant response",
-        suggested_command: Optional[str] = None,
+        suggested_command: str | None = None,
         should_fail: bool = False,
     ) -> None:
         self.canned_response = canned_response
         self.suggested_command = suggested_command
         self.should_fail = should_fail
-        self.recorded_calls: List[Dict[str, Any]] = []
+        self.recorded_calls: list[dict[str, Any]] = []
 
-    async def send_message(self, prompt: str, history: List[Dict[str, Any]]) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         if self.should_fail:
             raise ConnectionError("AI Provider API unreachable")
         self.recorded_calls.append({"prompt": prompt, "history": history})
@@ -58,12 +59,14 @@ class FakeAIGateway(AIGateway):
 class FakeShellExecutor(ShellExecutor):
     """In-memory fake shell executor simulating command run, output, and failures."""
 
-    def __init__(self, exit_code: int = 0, stdout: str = "", stderr: str = "", should_raise: bool = False) -> None:
+    def __init__(
+        self, exit_code: int = 0, stdout: str = "", stderr: str = "", should_raise: bool = False
+    ) -> None:
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
         self.should_raise = should_raise
-        self.executed_commands: List[Command] = []
+        self.executed_commands: list[Command] = []
 
     async def execute(self, command: Command) -> CommandResult:
         if self.should_raise:
@@ -82,14 +85,14 @@ class FakeSessionRepository(SessionRepository):
     """In-memory dictionary-backed fake session repository."""
 
     def __init__(self) -> None:
-        self.sessions: Dict[UUID, Session] = {}
+        self.sessions: dict[UUID, Session] = {}
 
     async def save(self, session: Session) -> None:
         self.sessions[session.id] = session
 
-    async def get_history(self, filters: Dict[str, Any]) -> List[Command]:
+    async def get_history(self, filters: dict[str, Any]) -> list[Command]:
         user_filter = filters.get("user")
-        results: List[Command] = []
+        results: list[Command] = []
         for session in self.sessions.values():
             if user_filter is None or session.user == user_filter:
                 results.extend(session.commands)
@@ -99,6 +102,7 @@ class FakeSessionRepository(SessionRepository):
 # ============================================================================
 # ExecuteCommandUseCase Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_execute_command_success_normal_flow() -> None:
@@ -140,6 +144,7 @@ async def test_execute_command_executor_crash_resilience() -> None:
 # ============================================================================
 # EvaluatePolicyUseCase Tests
 # ============================================================================
+
 
 def test_evaluate_policy_blocks_critical_commands_in_autonomous_mode() -> None:
     """Verifies that a dangerous command raises CommandBlockedException in autonomous mode."""
@@ -205,6 +210,7 @@ def test_evaluate_policy_requires_confirmation_on_medium_risk() -> None:
 # ============================================================================
 # ChatWithAIUseCase Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_chat_with_ai_tool_use_command_proposal() -> None:

@@ -1,4 +1,5 @@
 """Value object representing the resulting action of a policy evaluation."""
+
 from enum import Enum
 
 

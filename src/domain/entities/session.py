@@ -1,7 +1,7 @@
 """Domain entity representing an active or completed user work session."""
+
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from src.domain.entities.command import Command
@@ -24,10 +24,10 @@ class Session:
 
     user: str
     id: UUID = field(default_factory=uuid4)
-    commands: List[Command] = field(default_factory=list)
-    authorized_targets: List[Target] = field(default_factory=list)
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ended_at: Optional[datetime] = None
+    commands: list[Command] = field(default_factory=list)
+    authorized_targets: list[Target] = field(default_factory=list)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    ended_at: datetime | None = None
     is_autonomous: bool = False
 
     def add_command(self, command: Command) -> None:
@@ -51,4 +51,4 @@ class Session:
 
     def end_session(self) -> None:
         """Marks the session as closed by assigning the current UTC timestamp to ended_at."""
-        self.ended_at = datetime.now(timezone.utc)
+        self.ended_at = datetime.now(UTC)

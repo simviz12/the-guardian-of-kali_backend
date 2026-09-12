@@ -1,6 +1,7 @@
 """Use case for querying session command history with optional filters."""
+
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from src.application.ports.session_repository import SessionRepository
@@ -25,12 +26,12 @@ class GetSessionHistoryUseCase:
 
     async def run(
         self,
-        session_id: Optional[UUID] = None,
-        user: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        risk_level: Optional[RiskLevel] = None,
-    ) -> List[Command]:
+        session_id: UUID | None = None,
+        user: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        risk_level: RiskLevel | None = None,
+    ) -> list[Command]:
         """Queries the session repository for commands matching criteria.
 
         Args:
@@ -43,7 +44,7 @@ class GetSessionHistoryUseCase:
         Returns:
             List[Command]: Chronologically ordered list of matching commands.
         """
-        filters: Dict[str, Any] = {}
+        filters: dict[str, Any] = {}
         if session_id is not None:
             filters["session_id"] = session_id
         if user is not None:

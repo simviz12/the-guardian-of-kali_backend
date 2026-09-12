@@ -1,22 +1,21 @@
 """End-to-end integration test verifying command execution, SQLite persistence, and history retrieval."""
-import os
+
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
-from src.dependencies import (
-    get_shell_executor,
-    get_session_repository,
-    get_execute_command_use_case,
-    get_session_history_use_case,
-)
 from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
-from src.application.ports.shell_executor import ShellExecutor
 from src.application.dtos.responses import CommandResult
+from src.application.ports.shell_executor import ShellExecutor
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.dependencies import (
+    get_execute_command_use_case,
+    get_session_history_use_case,
+    get_session_repository,
+    get_shell_executor,
+)
 from src.domain.entities.command import Command
-from src.domain.value_objects.risk_level import RiskLevel
+from src.main import app
 
 
 class MockShellExecutor(ShellExecutor):

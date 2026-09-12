@@ -1,4 +1,5 @@
 """Value object representing the origin source of a command."""
+
 from enum import Enum
 
 

@@ -1,11 +1,9 @@
 """Security policy rules, destructive command blacklist patterns, and target authorization validation."""
-from typing import List, Optional
 
 from src.domain.entities.policy_rule import PolicyRule
 from src.domain.entities.session import Session
 from src.domain.value_objects.policy_action import PolicyAction
 from src.domain.value_objects.risk_level import RiskLevel
-
 
 # ============================================================================
 # Blacklist Regular Expression Patterns
@@ -24,9 +22,7 @@ PATTERN_MASS_DELETION = (
 # 2. Disk and filesystem formatting commands
 # Blocks: 'mkfs.ext4 /dev/sda1', 'mkfs.xfs /dev/nvme0n1p1', 'mkfs -t vfat /dev/sdb', 'mke2fs /dev/sda'
 # Rationale: Recreating filesystems destroys all partitions and stored lab data without confirmation.
-PATTERN_DISK_FORMATTING = (
-    r"\bmkfs(?:\.[a-zA-Z0-9]+)?\s+|(?:^|\s)mke2fs\s+"
-)
+PATTERN_DISK_FORMATTING = r"\bmkfs(?:\.[a-zA-Z0-9]+)?\s+|(?:^|\s)mke2fs\s+"
 
 # 3. Partition table manipulation and raw block device overwriting
 # Blocks: 'fdisk /dev/sda', 'parted /dev/sda mklabel gpt', 'gdisk', 'sfdisk',
@@ -42,9 +38,7 @@ PATTERN_PARTITION_AND_RAW_WRITES = (
 # 4. System shutdown, reboot, and power state termination
 # Blocks: 'shutdown -h now', 'shutdown -r 0', 'reboot', 'poweroff', 'init 0', 'init 6', 'halt'
 # Rationale: Halting or rebooting the operating system abruptly kills active user and background processes.
-PATTERN_SYSTEM_SHUTDOWN = (
-    r"\b(?:shutdown\s+-[a-zA-Z0-9]+|shutdown\s+now|reboot(?:\s+-[a-zA-Z0-9]+)?|poweroff|halt|init\s+[06])\b"
-)
+PATTERN_SYSTEM_SHUTDOWN = r"\b(?:shutdown\s+-[a-zA-Z0-9]+|shutdown\s+now|reboot(?:\s+-[a-zA-Z0-9]+)?|poweroff|halt|init\s+[06])\b"
 
 # 5. Host firewall flushing and tampering
 # Blocks: 'iptables -F', 'iptables --flush', 'ip6tables -F', 'ufw disable', 'ufw reset', 'nft flush ruleset'
@@ -65,13 +59,11 @@ PATTERN_PRIVILEGE_ESCALATION = (
 )
 
 
-
-
 # ============================================================================
 # Default Blacklist Policy Rules
 # ============================================================================
 
-DEFAULT_BLACKLIST_RULES: List[PolicyRule] = [
+DEFAULT_BLACKLIST_RULES: list[PolicyRule] = [
     PolicyRule(
         id="block-mass-deletion",
         pattern=PATTERN_MASS_DELETION,
@@ -120,6 +112,7 @@ DEFAULT_BLACKLIST_RULES: List[PolicyRule] = [
 # ============================================================================
 # Target Authorization Scope Validation
 # ============================================================================
+
 
 def is_target_authorized(target: str, session: Session) -> bool:
     """Validates whether a target IP address, subnet CIDR, or domain name is explicitly

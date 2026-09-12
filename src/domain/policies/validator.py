@@ -1,7 +1,7 @@
 """Central policy validator combining blacklist verification, target authorization, and risk classification."""
+
 import logging
 import re
-from typing import Optional
 
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
@@ -24,7 +24,7 @@ DOMAIN_REGEX = re.compile(
 )
 
 
-def _extract_command_target(command_text: str) -> Optional[str]:
+def _extract_command_target(command_text: str) -> str | None:
     """Heuristically extracts the first target IP or domain found within command arguments."""
     # Look for explicit IPv4 or CIDR first
     ip_match = IPV4_REGEX.search(command_text)
@@ -127,7 +127,13 @@ def validate_command(command: Command, session: Session) -> PolicyDecision:
             action = PolicyAction.REQUIRE_CONFIRMATION
             reason = f"Suggestion mode: {risk.value} risk command requires operator confirmation"
 
-    logger.info("Policy decision: %s for command '%s' (Risk: %s) - Reason: %s", action.value, cmd_text, risk.value, reason)
+    logger.info(
+        "Policy decision: %s for command '%s' (Risk: %s) - Reason: %s",
+        action.value,
+        cmd_text,
+        risk.value,
+        reason,
+    )
 
     return PolicyDecision(
         action=action,

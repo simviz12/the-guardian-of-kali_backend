@@ -1,35 +1,32 @@
 """Dependency injection providers for use cases and infrastructure adapters."""
+
 from functools import lru_cache
-from typing import Optional, List
-
-from src.application.ports.shell_executor import ShellExecutor
-from src.application.ports.session_repository import SessionRepository
-from src.application.ports.ai_gateway import AIGateway
-from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
-from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
-from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
-from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
-from src.domain.entities.policy_rule import PolicyRule
-
 
 from src.adapters.ai.claude_ai_gateway import ClaudeAIGateway
+from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
+from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
+from src.application.ports.ai_gateway import AIGateway
+from src.application.ports.session_repository import SessionRepository
+from src.application.ports.shell_executor import ShellExecutor
+from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
+from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 
 
-@lru_cache()
+@lru_cache
 def get_shell_executor() -> ShellExecutor:
     """Provides a singleton WSLShellExecutor instance."""
     return WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=30.0)
 
 
-@lru_cache()
+@lru_cache
 def get_session_repository() -> SessionRepository:
     """Provides a singleton SQLiteSessionRepository instance."""
     return SQLiteSessionRepository(db_path="the_guardian_of_kali.db")
 
 
-@lru_cache()
+@lru_cache
 def get_ai_gateway() -> AIGateway:
     """Provides a singleton ClaudeAIGateway instance."""
     return ClaudeAIGateway()

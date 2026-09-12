@@ -1,17 +1,16 @@
 """SQLite implementation of SessionRepository for persistent audit and history tracking."""
+
 import asyncio
-from datetime import datetime, timezone
 import os
 import sqlite3
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from datetime import UTC, datetime
+from typing import Any
 
 from src.application.ports.session_repository import SessionRepository
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.risk_level import RiskLevel
-
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sessions (
@@ -168,7 +167,7 @@ class SQLiteSessionRepository(SessionRepository):
 
             conn.commit()
 
-    async def get_history(self, filters: Dict[str, Any]) -> List[Command]:
+    async def get_history(self, filters: dict[str, Any]) -> list[Command]:
         """Queries executed commands filtered by user, session_id, date range, or risk_level.
 
         Args:
@@ -184,7 +183,7 @@ class SQLiteSessionRepository(SessionRepository):
         """
         return await asyncio.to_thread(self._get_history_sync, filters)
 
-    def _get_history_sync(self, filters: Dict[str, Any]) -> List[Command]:
+    def _get_history_sync(self, filters: dict[str, Any]) -> list[Command]:
         """Synchronous query implementation executing inside worker thread."""
         query = """
             SELECT c.id, c.session_id, c.text, c.origin, c.target, c.risk_level,
@@ -193,7 +192,7 @@ class SQLiteSessionRepository(SessionRepository):
             JOIN sessions s ON c.session_id = s.id
             WHERE 1=1
         """
-        params: List[Any] = []
+        params: list[Any] = []
 
         # Filter by session_id
         session_id = filters.get("session_id")
@@ -211,7 +210,9 @@ class SQLiteSessionRepository(SessionRepository):
         start_date = filters.get("start_date")
         if start_date is not None:
             query += " AND c.timestamp >= ?"
-            params.append(start_date.isoformat() if isinstance(start_date, datetime) else str(start_date))
+            params.append(
+                start_date.isoformat() if isinstance(start_date, datetime) else str(start_date)
+            )
 
         end_date = filters.get("end_date")
         if end_date is not None:
@@ -232,11 +233,11 @@ class SQLiteSessionRepository(SessionRepository):
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            commands: List[Command] = []
+            commands: list[Command] = []
             for row in rows:
                 dt = datetime.fromisoformat(row["timestamp"])
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.replace(tzinfo=UTC)
 
                 risk = RiskLevel(row["risk_level"]) if row["risk_level"] else None
                 origin = CommandOrigin(row["origin"])

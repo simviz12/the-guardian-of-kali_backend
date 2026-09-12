@@ -1,9 +1,10 @@
 """Abstract interface for session persistence and command auditing."""
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
 
-from src.domain.entities.session import Session
+from abc import ABC, abstractmethod
+from typing import Any
+
 from src.domain.entities.command import Command
+from src.domain.entities.session import Session
 
 
 class SessionRepository(ABC):
@@ -19,7 +20,7 @@ class SessionRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_history(self, filters: Dict[str, Any]) -> List[Command]:
+    async def get_history(self, filters: dict[str, Any]) -> list[Command]:
         """Retrieves past executed commands matching given search criteria.
 
         Args:

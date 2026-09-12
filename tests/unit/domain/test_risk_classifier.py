@@ -1,11 +1,12 @@
 """Unit tests for the extensible command risk classifier."""
+
 import pytest
 
-from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.policies.risk_classifier import (
     CommandRiskClassifier,
     classify_command_risk,
 )
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 @pytest.fixture
@@ -17,6 +18,7 @@ def classifier() -> CommandRiskClassifier:
 # ============================================================================
 # LOW Risk Tests: Passive Recon, DNS, Host Discovery
 # ============================================================================
+
 
 @pytest.mark.parametrize(
     "cmd",
@@ -48,6 +50,7 @@ def test_classify_low_risk_commands(classifier: CommandRiskClassifier, cmd: str)
 # MEDIUM Risk Tests: Active Scanning, Service Enumeration, Web Fuzzing
 # ============================================================================
 
+
 @pytest.mark.parametrize(
     "cmd",
     [
@@ -78,6 +81,7 @@ def test_classify_medium_risk_commands(classifier: CommandRiskClassifier, cmd: s
 # HIGH Risk Tests: Active Exploitation, Credential Attacks, Password Cracking
 # ============================================================================
 
+
 @pytest.mark.parametrize(
     "cmd",
     [
@@ -103,6 +107,7 @@ def test_classify_high_risk_commands(classifier: CommandRiskClassifier, cmd: str
 # BLOCKED Risk Tests: Blacklisted Destructive Commands
 # ============================================================================
 
+
 @pytest.mark.parametrize(
     "cmd",
     [
@@ -121,6 +126,7 @@ def test_classify_blocked_destructive_commands(classifier: CommandRiskClassifier
 # ============================================================================
 # Extensibility Tests: Dynamically Registering New Patterns
 # ============================================================================
+
 
 def test_dynamic_pattern_registration() -> None:
     """Verifies that custom security tools can be dynamically registered without code modification."""

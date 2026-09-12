@@ -1,7 +1,8 @@
 """Unit tests verifying the PolicyRule entity and pattern matching."""
+
 from src.domain.entities.policy_rule import PolicyRule
-from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.value_objects.policy_action import PolicyAction
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 def test_policy_rule_matches_regex() -> None:

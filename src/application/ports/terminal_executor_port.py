@@ -1,6 +1,7 @@
-﻿"""Abstract interface for terminal execution engines."""
+"""Abstract interface for terminal execution engines."""
+
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Any
 
 
 class TerminalExecutorPort(ABC):
@@ -8,9 +9,7 @@ class TerminalExecutorPort(ABC):
 
     @abstractmethod
     async def execute_command(
-        self,
-        command: str,
-        as_restricted_user: bool = True
-    ) -> Dict[str, Any]:
+        self, command: str, as_restricted_user: bool = True
+    ) -> dict[str, Any]:
         """Executes a command and returns execution metadata (exit code, stdout, stderr)."""
         raise NotImplementedError

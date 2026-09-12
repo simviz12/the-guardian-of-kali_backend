@@ -1,8 +1,9 @@
 """Abstract interface for terminal shell executors."""
+
 from abc import ABC, abstractmethod
 
-from src.domain.entities.command import Command
 from src.application.dtos.responses import CommandResult
+from src.domain.entities.command import Command
 
 
 class ShellExecutor(ABC):

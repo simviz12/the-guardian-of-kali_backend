@@ -3,28 +3,28 @@
 Ensures pure domain compliance: zero external dependencies, no network,
 no WSL/database interaction, executing well under 1 second.
 """
-from datetime import datetime, timezone, timedelta
+
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from uuid import UUID
 
 from src.domain.entities.command import Command
-from src.domain.entities.target import Target
-from src.domain.entities.session import Session
 from src.domain.entities.policy_rule import PolicyRule
-from src.domain.value_objects.risk_level import RiskLevel
+from src.domain.entities.session import Session
+from src.domain.entities.target import Target
+from src.domain.exceptions import (
+    CommandBlockedException,
+    DomainException,
+    TargetNotAuthorizedException,
+)
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.policy_action import PolicyAction
-from src.domain.exceptions import (
-    DomainException,
-    CommandBlockedException,
-    TargetNotAuthorizedException,
-    InvalidSessionException,
-)
-
+from src.domain.value_objects.risk_level import RiskLevel
 
 # ============================================================================
 # Command Entity Edge Cases & Properties
 # ============================================================================
+
 
 def test_command_defaults_and_immutability_attributes() -> None:
     """Verifies default values and field assignment for Command."""
@@ -47,6 +47,7 @@ def test_command_whitespace_preservation() -> None:
 # ============================================================================
 # Target Entity: Edge Cases, Boundary CIDR & Malformed Inputs
 # ============================================================================
+
 
 @pytest.mark.parametrize(
     "cidr, candidate_ip, expected",
@@ -110,15 +111,18 @@ def test_target_domain_subdomain_hierarchies() -> None:
 # Session Entity: Duplicate Rejection & Chronological Ordering
 # ============================================================================
 
+
 def test_session_command_history_and_duplicate_deduplication() -> None:
     """Verifies session retains command history and deduplicates identical submissions."""
     session = Session(user="carlos")
-    t0 = datetime(2026, 9, 10, 10, 0, 0, tzinfo=timezone.utc)
+    t0 = datetime(2026, 9, 10, 10, 0, 0, tzinfo=UTC)
     t1 = t0 + timedelta(seconds=10)
     t2 = t0 + timedelta(seconds=20)
 
     cmd_first = Command(text="ping -c 1 10.10.10.1", origin=CommandOrigin.MANUAL_USER, timestamp=t0)
-    cmd_duplicate = Command(text="ping -c 1 10.10.10.1", origin=CommandOrigin.MANUAL_USER, timestamp=t0)
+    cmd_duplicate = Command(
+        text="ping -c 1 10.10.10.1", origin=CommandOrigin.MANUAL_USER, timestamp=t0
+    )
     cmd_later = Command(text="nmap -sS 10.10.10.1", origin=CommandOrigin.AI, timestamp=t2)
     cmd_middle = Command(text="traceroute 10.10.10.1", origin=CommandOrigin.AI, timestamp=t1)
 
@@ -152,6 +156,7 @@ def test_session_lifecycle_and_target_association() -> None:
 # ============================================================================
 # PolicyRule Entity & Pattern Matching
 # ============================================================================
+
 
 @pytest.mark.parametrize(
     "cmd_text, should_match",
@@ -192,6 +197,7 @@ def test_policy_rule_invalid_regex_fallback() -> None:
 # ============================================================================
 # Domain Exceptions
 # ============================================================================
+
 
 def test_domain_exceptions_are_pure_and_catchable() -> None:
     """Verifies domain exceptions hierarchy and catching under DomainException."""

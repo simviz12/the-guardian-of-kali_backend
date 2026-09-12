@@ -1,26 +1,28 @@
 """Unit tests verifying ChatWithAIUseCase conversation handling and command proposals."""
-import pytest
-from typing import Any, Dict, List, Optional
 
+from typing import Any
+
+import pytest
+
+from src.application.dtos.responses import AIResponse, ChatResult
+from src.application.ports.ai_gateway import AIGateway
+from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
 from src.domain.value_objects.command_origin import CommandOrigin
-from src.application.ports.ai_gateway import AIGateway
-from src.application.dtos.responses import AIResponse, ChatResult
-from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
 
 
 class MockAIGateway(AIGateway):
     """Mock implementation of AIGateway for testing."""
 
-    def __init__(self, response_text: str, suggested_command: Optional[str] = None) -> None:
+    def __init__(self, response_text: str, suggested_command: str | None = None) -> None:
         self.response_text = response_text
         self.suggested_command = suggested_command
-        self.last_prompt: Optional[str] = None
-        self.last_history: Optional[List[Dict[str, Any]]] = None
+        self.last_prompt: str | None = None
+        self.last_history: list[dict[str, Any]] | None = None
 
-    async def send_message(self, prompt: str, history: List[Dict[str, Any]]) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         self.last_prompt = prompt
         self.last_history = history
         return AIResponse(

@@ -1,10 +1,12 @@
 """Unit tests for ClaudeAIGateway adapter using Anthropic SDK."""
+
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
-from src.adapters.ai.claude_ai_gateway import ClaudeAIGateway, PROPOSE_COMMAND_TOOL
-from src.application.ports.ai_gateway import AIGateway
+from src.adapters.ai.claude_ai_gateway import PROPOSE_COMMAND_TOOL, ClaudeAIGateway
 from src.application.dtos.responses import AIResponse
+from src.application.ports.ai_gateway import AIGateway
 
 
 def test_claude_ai_gateway_implements_interface() -> None:

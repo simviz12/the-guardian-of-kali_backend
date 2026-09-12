@@ -1,4 +1,5 @@
 """Unit tests verifying the Target entity and its IP/domain containment logic."""
+
 from src.domain.entities.target import Target
 
 

@@ -1,14 +1,18 @@
 """Unit tests verifying ExecuteCommandUseCase execution flow and error handling."""
-import pytest
-from typing import Any, Dict, List
 
+from typing import Any
+
+import pytest
+
+from src.application.dtos.responses import CommandResult
+from src.application.ports.session_repository import SessionRepository
+from src.application.ports.shell_executor import ShellExecutor
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
+from src.domain.entities.target import Target
+from src.domain.exceptions import CommandBlockedException
 from src.domain.value_objects.command_origin import CommandOrigin
-from src.application.ports.shell_executor import ShellExecutor
-from src.application.ports.session_repository import SessionRepository
-from src.application.dtos.responses import CommandResult
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
 
 
 class MockShellExecutor(ShellExecutor):
@@ -16,7 +20,7 @@ class MockShellExecutor(ShellExecutor):
 
     def __init__(self, should_fail: bool = False) -> None:
         self.should_fail = should_fail
-        self.executed_commands: List[Command] = []
+        self.executed_commands: list[Command] = []
 
     async def execute(self, command: Command) -> CommandResult:
         if self.should_fail:
@@ -35,12 +39,12 @@ class MockSessionRepository(SessionRepository):
     """Mock implementation of SessionRepository for unit testing."""
 
     def __init__(self) -> None:
-        self.saved_sessions: List[Session] = []
+        self.saved_sessions: list[Session] = []
 
     async def save(self, session: Session) -> None:
         self.saved_sessions.append(session)
 
-    async def get_history(self, filters: Dict[str, Any]) -> List[Command]:
+    async def get_history(self, filters: dict[str, Any]) -> list[Command]:
         return []
 
 
@@ -63,10 +67,6 @@ async def test_execute_command_success() -> None:
     assert len(repo.saved_sessions) == 1
 
 
-from src.domain.entities.target import Target
-from src.domain.exceptions import CommandBlockedException
-
-
 @pytest.mark.asyncio
 async def test_execute_command_resilience_to_executor_exceptions() -> None:
     """Verifies that executor errors do not crash the app and produce error result."""
@@ -75,8 +75,7 @@ async def test_execute_command_resilience_to_executor_exceptions() -> None:
     use_case = ExecuteCommandUseCase(executor=executor, repository=repo)
 
     session = Session(
-        user="carlos",
-        authorized_targets=[Target(value="10.10.10.1", description="Lab")]
+        user="carlos", authorized_targets=[Target(value="10.10.10.1", description="Lab")]
     )
     cmd = Command(text="nmap 10.10.10.1", origin=CommandOrigin.AI, target="10.10.10.1")
 

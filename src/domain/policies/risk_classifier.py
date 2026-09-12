@@ -1,13 +1,12 @@
 """Command risk classifier assessing risk levels using an extensible pattern dictionary."""
+
 import re
-from typing import Dict, List, Optional
 
-from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.policies.policy_rules import DEFAULT_BLACKLIST_RULES
-
+from src.domain.value_objects.risk_level import RiskLevel
 
 # Extensible default dictionary mapping risk categories to regex patterns
-DEFAULT_RISK_PATTERNS: Dict[RiskLevel, List[str]] = {
+DEFAULT_RISK_PATTERNS: dict[RiskLevel, list[str]] = {
     # HIGH RISK: Active exploitation, payload execution, vulnerability exploitation, credential attacks
     RiskLevel.HIGH: [
         r"\bmsfconsole\b",
@@ -76,19 +75,17 @@ class CommandRiskClassifier:
         _patterns (Dict[RiskLevel, List[re.Pattern]]): Compiled regex patterns by risk level.
     """
 
-    def __init__(self, custom_patterns: Optional[Dict[RiskLevel, List[str]]] = None) -> None:
+    def __init__(self, custom_patterns: dict[RiskLevel, list[str]] | None = None) -> None:
         """Initializes the risk classifier with default or customized pattern sets.
 
         Args:
             custom_patterns (Optional[Dict[RiskLevel, List[str]]]): Optional override or extension.
         """
         raw_patterns = custom_patterns or DEFAULT_RISK_PATTERNS
-        self._patterns: Dict[RiskLevel, List[re.Pattern]] = {}
+        self._patterns: dict[RiskLevel, list[re.Pattern]] = {}
 
         for level, pattern_list in raw_patterns.items():
-            self._patterns[level] = [
-                re.compile(p, re.IGNORECASE) for p in pattern_list
-            ]
+            self._patterns[level] = [re.compile(p, re.IGNORECASE) for p in pattern_list]
 
     def register_pattern(self, risk_level: RiskLevel, pattern: str) -> None:
         """Dynamically registers an additional pattern to a given risk level without modifying code.

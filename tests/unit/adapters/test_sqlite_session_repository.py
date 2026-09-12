@@ -1,8 +1,8 @@
 """Unit tests for SQLiteSessionRepository."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
+
 import pytest
-import sqlite3
-import os
 
 from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
 from src.domain.entities.command import Command
@@ -58,7 +58,6 @@ async def test_save_and_retrieve_session(repo: SQLiteSessionRepository) -> None:
     conn.close()
 
 
-
 @pytest.mark.asyncio
 async def test_filter_by_user(repo: SQLiteSessionRepository) -> None:
     """Verifies filtering command history by session user."""
@@ -84,7 +83,11 @@ async def test_filter_by_risk_level(repo: SQLiteSessionRepository) -> None:
     """Verifies filtering command history by evaluated risk_level."""
     session = Session(user="carlos")
     cmd_low = Command(text="whoami", origin=CommandOrigin.AI, risk_level=RiskLevel.LOW)
-    cmd_high = Command(text="hydra -l admin -P pass.txt 10.10.10.1", origin=CommandOrigin.AI, risk_level=RiskLevel.HIGH)
+    cmd_high = Command(
+        text="hydra -l admin -P pass.txt 10.10.10.1",
+        origin=CommandOrigin.AI,
+        risk_level=RiskLevel.HIGH,
+    )
     cmd_blocked = Command(text="rm -rf /", origin=CommandOrigin.AI, risk_level=RiskLevel.BLOCKED)
 
     session.add_command(cmd_low)
@@ -104,14 +107,16 @@ async def test_filter_by_risk_level(repo: SQLiteSessionRepository) -> None:
 @pytest.mark.asyncio
 async def test_filter_by_date_range(repo: SQLiteSessionRepository) -> None:
     """Verifies filtering command history by start_date and end_date."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old_time = now - timedelta(days=2)
     future_time = now + timedelta(days=2)
 
     session = Session(user="carlos")
     cmd_past = Command(text="old command", origin=CommandOrigin.MANUAL_USER, timestamp=old_time)
     cmd_current = Command(text="current command", origin=CommandOrigin.MANUAL_USER, timestamp=now)
-    cmd_future = Command(text="future command", origin=CommandOrigin.MANUAL_USER, timestamp=future_time)
+    cmd_future = Command(
+        text="future command", origin=CommandOrigin.MANUAL_USER, timestamp=future_time
+    )
 
     session.add_command(cmd_past)
     session.add_command(cmd_current)

@@ -7,42 +7,44 @@ Simulates the complete system workflow:
 4. Real Execution against WSL2 Kali Linux (as ia-user) using harmless system diagnostics.
 5. Persistent Audit & History Verification in SQLite.
 """
+
 import shutil
 import sqlite3
-from typing import Any, Dict, List
+from typing import Any
 from uuid import uuid4
+
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
-from src.dependencies import (
-    get_shell_executor,
-    get_session_repository,
-    get_ai_gateway,
-    get_execute_command_use_case,
-    get_evaluate_policy_use_case,
-    get_chat_with_ai_use_case,
-    get_session_history_use_case,
-)
-from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
-from src.application.ports.ai_gateway import AIGateway
+from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.application.dtos.responses import AIResponse
-from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.ports.ai_gateway import AIGateway
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
+from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
+from src.application.use_cases.execute_command import ExecuteCommandUseCase
 from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.dependencies import (
+    get_ai_gateway,
+    get_chat_with_ai_use_case,
+    get_evaluate_policy_use_case,
+    get_execute_command_use_case,
+    get_session_history_use_case,
+    get_session_repository,
+    get_shell_executor,
+)
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
 from src.domain.entities.target import Target
-from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.exceptions import CommandBlockedException
+from src.domain.value_objects.command_origin import CommandOrigin
+from src.main import app
 
 
 class FakeClaudeAIGateway(AIGateway):
     """Simulates deterministic Claude co-pilot responses for testing the end-to-end pipeline."""
 
-    async def send_message(self, prompt: str, history: List[Dict[str, Any]]) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         prompt_lower = prompt.lower()
 
         # Scenario 1: Harmless recon / inspection request against authorized localhost
@@ -84,8 +86,9 @@ def e2e_system(tmp_path):
     """
     db_file = str(tmp_path / "e2e_guardian_test.db")
     real_repo = SQLiteSessionRepository(db_path=db_file)
-    real_wsl_shell = WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=15.0)
+    real_wsl_shell = WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=30.0)
     fake_ai = FakeClaudeAIGateway()
+
     policy_uc = EvaluatePolicyUseCase()
 
     execute_uc = ExecuteCommandUseCase(
@@ -141,6 +144,7 @@ def test_full_e2e_flow_session_chat_policy_real_wsl_and_sqlite(e2e_system) -> No
     )
     # Save initial session
     import asyncio
+
     asyncio.run(repo.save(session))
 
     # 2. Operator sends message to AI co-pilot
@@ -192,7 +196,10 @@ def test_full_e2e_flow_session_chat_policy_real_wsl_and_sqlite(e2e_system) -> No
     # 6. Low-level direct SQLite database file inspection
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
-    cursor.execute("SELECT session_id, text, origin, target, risk_level FROM commands WHERE session_id = ?", (str(session_uuid),))
+    cursor.execute(
+        "SELECT session_id, text, origin, target, risk_level FROM commands WHERE session_id = ?",
+        (str(session_uuid),),
+    )
     row = cursor.fetchone()
     conn.close()
 
@@ -247,7 +254,9 @@ def test_full_e2e_flow_destructive_command_blocked_before_wsl(e2e_system) -> Non
     client, repo, db_file = e2e_system
     session_uuid = uuid4()
 
-    chat_resp = client.post("/chat", json={"message": "Wipe and delete the disk", "session_id": str(session_uuid)})
+    chat_resp = client.post(
+        "/chat", json={"message": "Wipe and delete the disk", "session_id": str(session_uuid)}
+    )
     assert chat_resp.status_code == 200
     chat_data = chat_resp.json()
     assert chat_data["proposed_command"]["text"] == "rm -rf /"
@@ -287,6 +296,7 @@ def test_full_e2e_flow_unauthorized_target_blocked_before_wsl(e2e_system) -> Non
         authorized_targets=[Target(value="10.10.10.15", description="Only this target")],
     )
     import asyncio
+
     asyncio.run(repo.save(session))
 
     real_wsl_shell = WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=15.0)
@@ -308,7 +318,10 @@ def test_full_e2e_flow_unauthorized_target_blocked_before_wsl(e2e_system) -> Non
         asyncio.run(execute_uc.run(command=unauthorized_cmd, session=session))
 
     # Inviolable guarantee: reason explicitly mentions unauthorized scope
-    assert "not authorized" in str(exc_info.value).lower() or "not within authorized" in str(exc_info.value).lower()
+    assert (
+        "not authorized" in str(exc_info.value).lower()
+        or "not within authorized" in str(exc_info.value).lower()
+    )
 
 
 @pytest.mark.skipif(

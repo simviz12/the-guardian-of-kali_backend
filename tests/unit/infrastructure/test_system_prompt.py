@@ -1,6 +1,7 @@
 """Unit tests for the AI security assistant system prompt."""
-from src.infrastructure.config.system_prompt import KALI_GUARDIAN_SYSTEM_PROMPT
+
 from src.adapters.ai.claude_ai_gateway import ClaudeAIGateway
+from src.infrastructure.config.system_prompt import KALI_GUARDIAN_SYSTEM_PROMPT
 
 
 def test_system_prompt_contains_mandatory_ethical_and_scope_directives() -> None:

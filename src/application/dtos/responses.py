@@ -1,6 +1,7 @@
 """Data transfer objects for the application layer."""
+
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.domain.entities.command import Command
 
@@ -16,8 +17,8 @@ class AIResponse:
     """
 
     content: str
-    suggested_command: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    suggested_command: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,7 @@ class ChatResult:
     """
 
     response_text: str
-    proposed_command: Optional[Command] = None
+    proposed_command: Command | None = None
 
     @property
     def has_proposed_command(self) -> bool:

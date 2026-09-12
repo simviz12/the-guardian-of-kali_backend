@@ -1,8 +1,10 @@
 """Unit tests verifying the Command entity and RiskLevel value object."""
+
 from datetime import datetime
+
 from src.domain.entities.command import Command
-from src.domain.value_objects.risk_level import RiskLevel
 from src.domain.value_objects.command_origin import CommandOrigin
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 def test_command_creation_with_defaults() -> None:

@@ -1,12 +1,11 @@
 """Unit tests verifying the Session entity, its UUID assignment, and command ordering."""
-from datetime import datetime, timezone, timedelta
+
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from src.domain.entities.command import Command
 from src.domain.entities.session import Session
-from src.domain.entities.target import Target
 from src.domain.value_objects.command_origin import CommandOrigin
-from src.domain.value_objects.risk_level import RiskLevel
 
 
 def test_session_creation_defaults() -> None:
@@ -32,7 +31,7 @@ def test_session_unique_ids() -> None:
 def test_session_add_command_ordering() -> None:
     """Verifies that add_command keeps commands ordered by timestamp ascending."""
     session = Session(user="carlos")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     cmd_older = Command(
         text="ping 127.0.0.1",
@@ -57,7 +56,7 @@ def test_session_add_command_ordering() -> None:
 def test_session_prevents_duplicate_commands() -> None:
     """Verifies that duplicate command entries are not inserted repeatedly."""
     session = Session(user="carlos")
-    fixed_time = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
+    fixed_time = datetime(2026, 9, 10, 12, 0, 0, tzinfo=UTC)
 
     cmd1 = Command(text="whoami", origin=CommandOrigin.MANUAL_USER, timestamp=fixed_time)
     cmd1_duplicate = Command(text="whoami", origin=CommandOrigin.MANUAL_USER, timestamp=fixed_time)

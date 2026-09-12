@@ -1,15 +1,14 @@
 """Use case for evaluating security policies against candidate commands."""
-from typing import List, Optional
 
 from src.domain.entities.command import Command
-from src.domain.entities.session import Session
 from src.domain.entities.policy_rule import PolicyRule
+from src.domain.entities.session import Session
+from src.domain.exceptions import CommandBlockedException
 from src.domain.policies.validator import validate_command
 from src.domain.value_objects.command_origin import CommandOrigin
 from src.domain.value_objects.policy_action import PolicyAction
 from src.domain.value_objects.policy_decision import PolicyDecision
 from src.domain.value_objects.risk_level import RiskLevel
-from src.domain.exceptions import CommandBlockedException
 
 
 class EvaluatePolicyUseCase:
@@ -29,7 +28,7 @@ class EvaluatePolicyUseCase:
 
     def __init__(
         self,
-        rules: Optional[List[PolicyRule]] = None,
+        rules: list[PolicyRule] | None = None,
         default_action: PolicyAction = PolicyAction.REQUIRE_CONFIRMATION,
     ) -> None:
         """Initializes the policy evaluation use case.
@@ -102,8 +101,6 @@ class EvaluatePolicyUseCase:
                         command_text=command.text,
                     )
 
-
         # Wire into central policy validator (Blacklist, Target Authorization, Risk Classifier)
         decision = validate_command(command, session)
         return decision
-

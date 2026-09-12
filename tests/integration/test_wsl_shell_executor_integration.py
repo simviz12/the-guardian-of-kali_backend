@@ -1,9 +1,12 @@
 """Integration tests for WSLShellExecutor running directly against WSL2 Kali Linux."""
+
 import shutil
+
 import pytest
+
+from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.domain.entities.command import Command
 from src.domain.value_objects.command_origin import CommandOrigin
-from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 
 # Skip integration tests if wsl.exe is not available (e.g. standard Linux GitHub Actions runners)
 pytestmark = pytest.mark.skipif(

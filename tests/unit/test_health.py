@@ -1,4 +1,4 @@
-﻿"""Initial unit test to verify pytest discovery and environment health."""
+"""Initial unit test to verify pytest discovery and environment health."""
 
 
 def test_environment_health() -> None:

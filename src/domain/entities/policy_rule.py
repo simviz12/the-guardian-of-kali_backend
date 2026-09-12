@@ -1,10 +1,10 @@
 """Domain entity representing a security policy rule."""
-from dataclasses import dataclass
-import re
-from typing import Optional
 
-from src.domain.value_objects.risk_level import RiskLevel
+import re
+from dataclasses import dataclass
+
 from src.domain.value_objects.policy_action import PolicyAction
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class PolicyRule:
     pattern: str
     risk_level: RiskLevel
     action: PolicyAction
-    description: Optional[str] = None
+    description: str | None = None
 
     def matches(self, command_text: str) -> bool:
         """Determines whether the given command matches this rule's regex pattern.

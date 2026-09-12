@@ -1,10 +1,10 @@
 """Domain entity representing a terminal command inside the system."""
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
 
-from src.domain.value_objects.risk_level import RiskLevel
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
 from src.domain.value_objects.command_origin import CommandOrigin
+from src.domain.value_objects.risk_level import RiskLevel
 
 
 @dataclass
@@ -22,6 +22,6 @@ class Command:
 
     text: str
     origin: CommandOrigin
-    target: Optional[str] = None
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    risk_level: Optional[RiskLevel] = None
+    target: str | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    risk_level: RiskLevel | None = None

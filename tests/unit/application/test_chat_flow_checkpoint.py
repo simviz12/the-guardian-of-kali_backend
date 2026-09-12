@@ -5,36 +5,35 @@ Covers:
 2. AI does NOT invent an arbitrary command for a vague, conceptual request.
 3. Rejecting an AI proposal does NOT execute it in the shell nor record it in session/SQLite history.
 """
-from typing import Any, Dict, List, Optional
+
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
-from src.dependencies import (
-    get_ai_gateway,
-    get_session_repository,
-    get_shell_executor,
-    get_chat_with_ai_use_case,
-    get_session_history_use_case,
-    get_execute_command_use_case,
-)
-from src.domain.entities.command import Command
-from src.domain.entities.session import Session
-from src.domain.entities.target import Target
-from src.domain.value_objects.command_origin import CommandOrigin
+from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
+from src.application.dtos.responses import AIResponse, CommandResult
 from src.application.ports.ai_gateway import AIGateway
 from src.application.ports.shell_executor import ShellExecutor
-from src.application.dtos.responses import AIResponse, CommandResult
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
-from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
 from src.application.use_cases.execute_command import ExecuteCommandUseCase
-from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
+from src.application.use_cases.get_session_history import GetSessionHistoryUseCase
+from src.dependencies import (
+    get_ai_gateway,
+    get_chat_with_ai_use_case,
+    get_execute_command_use_case,
+    get_session_history_use_case,
+    get_session_repository,
+    get_shell_executor,
+)
+from src.domain.entities.command import Command
+from src.main import app
 
 
 class FakeScenarioAIGateway(AIGateway):
     """Simulates realistic Claude responses for clear vs vague user inputs."""
 
-    async def send_message(self, prompt: str, history: List[Dict[str, Any]]) -> AIResponse:
+    async def send_message(self, prompt: str, history: list[dict[str, Any]]) -> AIResponse:
         prompt_lower = prompt.lower()
 
         # Scenario 1: Clear, scoped request
@@ -57,7 +56,7 @@ class TrackingShellExecutor(ShellExecutor):
     """Monitors any execution attempt to ensure rejected proposals never hit the shell."""
 
     def __init__(self) -> None:
-        self.executed_commands: List[Command] = []
+        self.executed_commands: list[Command] = []
 
     async def execute(self, command: Command) -> CommandResult:
         self.executed_commands.append(command)

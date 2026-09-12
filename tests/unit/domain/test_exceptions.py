@@ -1,10 +1,10 @@
 """Unit tests verifying domain exception semantics and hierarchy."""
-import pytest
+
 from src.domain.exceptions import (
-    DomainException,
     CommandBlockedException,
-    TargetNotAuthorizedException,
+    DomainException,
     InvalidSessionException,
+    TargetNotAuthorizedException,
 )
 
 
