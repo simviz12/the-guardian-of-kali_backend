@@ -7,7 +7,11 @@ from uuid import UUID
 
 import anthropic
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+
+load_dotenv()
+
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
@@ -25,7 +29,10 @@ from src.domain.entities.session import Session
 from src.domain.entities.target import Target
 from src.domain.exceptions import CommandBlockedException, TargetNotAuthorizedException
 from src.domain.value_objects.risk_level import RiskLevel
+from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
 from src.infrastructure.api.schemas import (
+    ChatMessageItem,
+    ChatMessagesResponse,
     ChatRequest,
     ChatResponse,
     CommandHistoryItem,
@@ -33,6 +40,9 @@ from src.infrastructure.api.schemas import (
     ExecuteCommandResponse,
     HistoryResponse,
     ProposedCommandSchema,
+    SaveChatMessageRequest,
+    SaveChatMessageResponse,
+    UpdateChatMessageRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,9 +67,12 @@ def create_app() -> FastAPI:
     allowed_origins = [
         "http://localhost:5173",  # Vite dev server default
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
         "app://-",  # Electron production custom protocol
         "file://",  # Electron local file rendering
     ]
+
 
     app.add_middleware(
         CORSMiddleware,
@@ -177,10 +190,15 @@ def create_app() -> FastAPI:
 
         Catches Anthropic rate limits and API errors gracefully returning appropriate HTTP statuses.
         """
+        targets = (
+            [Target(value=t) for t in payload.authorized_targets]
+            if payload.authorized_targets
+            else []
+        )
         session = (
-            Session(user="carlos", id=payload.session_id)
+            Session(user="carlos", id=payload.session_id, authorized_targets=targets)
             if payload.session_id
-            else Session(user="carlos")
+            else Session(user="carlos", authorized_targets=targets)
         )
 
         try:
@@ -239,6 +257,68 @@ def create_app() -> FastAPI:
             "chat_use_case": chat_use_case.__class__.__name__,
             "history_use_case": history_use_case.__class__.__name__,
         }
+
+    # ────────────────────────────────────────────
+    # Chat Message Persistence Endpoints
+    # ────────────────────────────────────────────
+
+    _chat_repo = SQLiteSessionRepository(db_path="the_guardian_of_kali.db")
+
+    @app.post(
+        "/chat/message",
+        response_model=SaveChatMessageResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["Chat History"],
+    )
+    async def save_chat_message(payload: SaveChatMessageRequest) -> SaveChatMessageResponse:
+        """Persists a single chat message (user or AI) to the SQLite database."""
+        msg_id = await _chat_repo.save_chat_message(
+            session_id=payload.session_id,
+            sender=payload.sender,
+            text=payload.text,
+            proposed_command_text=payload.proposed_command_text,
+            proposed_command_target=payload.proposed_command_target,
+            execution_status=payload.execution_status,
+            execution_stdout=payload.execution_stdout,
+            execution_stderr=payload.execution_stderr,
+            execution_exit_code=payload.execution_exit_code,
+            timestamp=payload.timestamp,
+        )
+        return SaveChatMessageResponse(message_id=msg_id, ok=True)
+
+    @app.patch(
+        "/chat/message/{message_id}",
+        status_code=status.HTTP_200_OK,
+        tags=["Chat History"],
+    )
+    async def update_chat_message(
+        message_id: int, payload: UpdateChatMessageRequest
+    ) -> dict:
+        """Updates the execution result fields of an existing chat message."""
+        await _chat_repo.update_chat_message_execution(
+            message_id=message_id,
+            execution_status=payload.execution_status,
+            execution_stdout=payload.execution_stdout,
+            execution_stderr=payload.execution_stderr,
+            execution_exit_code=payload.execution_exit_code,
+        )
+        return {"ok": True, "message_id": message_id}
+
+    @app.get(
+        "/chat/messages/{session_id}",
+        response_model=ChatMessagesResponse,
+        status_code=status.HTTP_200_OK,
+        tags=["Chat History"],
+    )
+    async def get_chat_messages(session_id: str) -> ChatMessagesResponse:
+        """Returns the full chat history for a given session ID."""
+        rows = await _chat_repo.get_chat_messages(session_id=session_id)
+        messages = [ChatMessageItem(**row) for row in rows]
+        return ChatMessagesResponse(
+            session_id=session_id,
+            count=len(messages),
+            messages=messages,
+        )
 
     return app
 

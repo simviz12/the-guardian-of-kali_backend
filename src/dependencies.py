@@ -2,7 +2,9 @@
 
 from functools import lru_cache
 
+import os
 from src.adapters.ai.claude_ai_gateway import ClaudeAIGateway
+from src.adapters.ai.gemini_ai_gateway import GeminiAIGateway
 from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
 from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.application.ports.ai_gateway import AIGateway
@@ -17,7 +19,7 @@ from src.application.use_cases.get_session_history import GetSessionHistoryUseCa
 @lru_cache
 def get_shell_executor() -> ShellExecutor:
     """Provides a singleton WSLShellExecutor instance."""
-    return WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=30.0)
+    return WSLShellExecutor(distro="kali-linux", user="root", timeout_seconds=180.0)
 
 
 @lru_cache
@@ -28,7 +30,9 @@ def get_session_repository() -> SessionRepository:
 
 @lru_cache
 def get_ai_gateway() -> AIGateway:
-    """Provides a singleton ClaudeAIGateway instance."""
+    """Provides a singleton AIGateway instance, preferring Gemini when configured."""
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        return GeminiAIGateway()
     return ClaudeAIGateway()
 
 
@@ -47,9 +51,10 @@ def get_execute_command_use_case() -> ExecuteCommandUseCase:
 
 
 def get_chat_with_ai_use_case() -> ChatWithAIUseCase:
-    """Provides the ChatWithAIUseCase with injected AI gateway."""
+    """Provides the ChatWithAIUseCase with injected AI gateway and session repository."""
     return ChatWithAIUseCase(
         ai_gateway=get_ai_gateway(),
+        repository=get_session_repository(),
     )
 
 

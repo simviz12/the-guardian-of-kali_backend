@@ -42,9 +42,25 @@ CREATE TABLE IF NOT EXISTS policy_logs (
     FOREIGN KEY (command_id) REFERENCES commands (id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    text TEXT NOT NULL,
+    proposed_command_text TEXT,
+    proposed_command_target TEXT,
+    execution_status TEXT,
+    execution_stdout TEXT,
+    execution_stderr TEXT,
+    execution_exit_code INTEGER,
+    timestamp TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_commands_session_id ON commands (session_id);
 CREATE INDEX IF NOT EXISTS idx_commands_timestamp ON commands (timestamp);
 CREATE INDEX IF NOT EXISTS idx_commands_risk_level ON commands (risk_level);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages (session_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_timestamp ON chat_messages (timestamp);
 """
 
 
@@ -252,3 +268,121 @@ class SQLiteSessionRepository(SessionRepository):
                 commands.append(cmd)
 
             return commands
+
+    async def save_chat_message(
+        self,
+        session_id: str,
+        sender: str,
+        text: str,
+        proposed_command_text: str | None = None,
+        proposed_command_target: str | None = None,
+        execution_status: str | None = None,
+        execution_stdout: str | None = None,
+        execution_stderr: str | None = None,
+        execution_exit_code: int | None = None,
+        timestamp: str | None = None,
+    ) -> int:
+        """Saves a single chat message to the chat_messages table.
+
+        Returns:
+            int: The inserted row ID (message ID).
+        """
+        return await asyncio.to_thread(
+            self._save_chat_message_sync,
+            session_id, sender, text,
+            proposed_command_text, proposed_command_target,
+            execution_status, execution_stdout, execution_stderr,
+            execution_exit_code, timestamp,
+        )
+
+    def _save_chat_message_sync(
+        self,
+        session_id: str,
+        sender: str,
+        text: str,
+        proposed_command_text: str | None,
+        proposed_command_target: str | None,
+        execution_status: str | None,
+        execution_stdout: str | None,
+        execution_stderr: str | None,
+        execution_exit_code: int | None,
+        timestamp: str | None,
+    ) -> int:
+        ts = timestamp or datetime.now(UTC).isoformat()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO chat_messages (
+                    session_id, sender, text,
+                    proposed_command_text, proposed_command_target,
+                    execution_status, execution_stdout, execution_stderr,
+                    execution_exit_code, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    session_id, sender, text,
+                    proposed_command_text, proposed_command_target,
+                    execution_status, execution_stdout, execution_stderr,
+                    execution_exit_code, ts,
+                ),
+            )
+            conn.commit()
+            return cursor.lastrowid or 0
+
+    async def update_chat_message_execution(
+        self,
+        message_id: int,
+        execution_status: str,
+        execution_stdout: str,
+        execution_stderr: str,
+        execution_exit_code: int,
+    ) -> None:
+        """Updates the execution result of a previously saved chat message."""
+        await asyncio.to_thread(
+            self._update_chat_message_execution_sync,
+            message_id, execution_status, execution_stdout, execution_stderr, execution_exit_code,
+        )
+
+    def _update_chat_message_execution_sync(
+        self,
+        message_id: int,
+        execution_status: str,
+        execution_stdout: str,
+        execution_stderr: str,
+        execution_exit_code: int,
+    ) -> None:
+        with self._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE chat_messages
+                SET execution_status = ?, execution_stdout = ?,
+                    execution_stderr = ?, execution_exit_code = ?
+                WHERE id = ?;
+                """,
+                (execution_status, execution_stdout, execution_stderr, execution_exit_code, message_id),
+            )
+            conn.commit()
+
+    async def get_chat_messages(self, session_id: str) -> list[dict]:
+        """Returns all chat messages for a given session ordered by timestamp."""
+        return await asyncio.to_thread(self._get_chat_messages_sync, session_id)
+
+    def _get_chat_messages_sync(self, session_id: str) -> list[dict]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, session_id, sender, text,
+                       proposed_command_text, proposed_command_target,
+                       execution_status, execution_stdout, execution_stderr,
+                       execution_exit_code, timestamp
+                FROM chat_messages
+                WHERE session_id = ?
+                ORDER BY timestamp ASC, id ASC;
+                """,
+                (session_id,),
+            )
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+

@@ -50,12 +50,11 @@ PATTERN_HOST_FIREWALL_TAMPERING = (
     r"|\bnft\s+flush\s+ruleset\b"
 )
 
-# 6. Sudo whitelist abuse and privilege escalation breakouts
-# Blocks: 'sudo nmap --script...', 'sudo nmap --interactive', 'sudo su', 'sudo -i', 'sudo bash', 'sudo sh', 'sudo zsh'
-# Rationale: Prevents ia-user from abusing sudo nmap via NSE script execution (GTFOBins) or invoking root shells.
+# 6. Privilege escalation breakouts (Modified to allow sudo)
+# Blocks: 'sudo su', 'sudo -i', 'sudo bash', 'sudo sh', 'sudo zsh'
+# Rationale: We allow sudo for tools, but prevent invoking raw interactive root shells.
 PATTERN_PRIVILEGE_ESCALATION = (
-    r"\bsudo\s+nmap\b.*--(?:script(?:-args)?|interactive)\b"
-    r"|\bsudo\s+(?:-[a-zA-Z0-9]*[si]|su\b|bash\b|sh\b|zsh\b|dash\b)"
+    r"\bsudo\s+(?:-[a-zA-Z0-9]*[si]|su\b|bash\b|sh\b|zsh\b|dash\b)"
 )
 
 

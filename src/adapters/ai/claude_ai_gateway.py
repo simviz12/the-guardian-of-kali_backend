@@ -66,10 +66,15 @@ class ClaudeAIGateway(AIGateway):
         """
         self._model = model
         self._system_prompt = system_prompt
+        workspace_id = os.environ.get("ANTHROPIC_WORKSPACE_ID")
+        default_headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+
         self._client = client or anthropic.AsyncAnthropic(
-            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy-key")
+            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY", "dummy-key"),
+            default_headers=default_headers,
         )
         self._max_retries = max_retries
+
 
     async def send_message(
         self,

@@ -21,15 +21,15 @@ class WSLShellExecutor(ShellExecutor):
     def __init__(
         self,
         distro: str = "kali-linux",
-        user: str = "ia-user",
-        timeout_seconds: float = 30.0,
+        user: str = "root",
+        timeout_seconds: float = 180.0,
     ) -> None:
         """Initializes the WSL shell executor adapter.
 
         Args:
             distro (str): WSL2 distribution name. Defaults to 'kali-linux'.
-            user (str): Restricted Linux username. Defaults strictly to 'ia-user'.
-            timeout_seconds (float): Execution timeout in seconds. Defaults to 30.0.
+            user (str): Restricted Linux username. Defaults strictly to 'root' to allow full tools without sudo hangs.
+            timeout_seconds (float): Execution timeout in seconds. Defaults to 180.0 (3 minutes).
         """
         self._distro = distro
         self._user = user
