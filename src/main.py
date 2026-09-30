@@ -320,6 +320,37 @@ def create_app() -> FastAPI:
             messages=messages,
         )
 
+    from pydantic import BaseModel
+    class ApiKeyPayload(BaseModel):
+        api_key: str
+
+    @app.get('/api/settings/api-key', tags=['Settings'])
+    async def get_api_key_status() -> dict:
+        import os
+        return {'has_key': bool(os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY'))}
+
+    @app.post('/api/settings/api-key', tags=['Settings'])
+    async def update_api_key(payload: ApiKeyPayload) -> dict:
+        import os
+        os.environ['GEMINI_API_KEY'] = payload.api_key
+        try:
+            with open('.env', 'r') as f:
+                lines = f.readlines()
+            with open('.env', 'w') as f:
+                for line in lines:
+                    if not line.startswith('GEMINI_API_KEY=') and not line.startswith('GOOGLE_API_KEY='):
+                        f.write(line)
+                if not lines[-1].endswith('\n'):
+                    f.write('\n')
+                f.write(f'GEMINI_API_KEY="{payload.api_key}"\n')
+        except FileNotFoundError:
+            with open('.env', 'w') as f:
+                f.write(f'GEMINI_API_KEY="{payload.api_key}"\n')
+        
+        from src.dependencies import get_ai_gateway
+        get_ai_gateway.cache_clear()
+        return {'ok': True}
+
     return app
 
 
