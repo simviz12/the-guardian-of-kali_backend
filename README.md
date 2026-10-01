@@ -1,5 +1,7 @@
 # 🛡️ The Guardian of Kaliche
 
+> **Una aplicación única para cada operador:** *The Guardian of Kaliche* no es un entorno genérico. Está diseñado para que **al momento de instalarse se ajuste automáticamente a tus componentes locales**. La aplicación se apropia de tu propio subsistema de Kali Linux, gestiona tu propia clave API de Inteligencia Artificial (Gemini) en un entorno seguro y genera una base de datos local cifrada y exclusiva para tu auditoría. **Tu entorno, tus reglas.**
+
 **The Guardian of Kaliche** es un Copiloto de Seguridad Ofensiva y Defensiva estructurado bajo un estricto modelo de **Clean Architecture** e impulsado por Inteligencia Artificial (Gemini 2.5). Se integra bidireccionalmente y en tiempo real con tu entorno nativo de **Kali Linux WSL2**.
 
 ## 🚀 Instalación en 1 Solo Paso (Automática)
