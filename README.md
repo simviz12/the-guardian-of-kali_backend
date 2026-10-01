@@ -1,56 +1,61 @@
-# 🛡️ The Guardian of Kaliche
+# The Guardian of Kaliche - Backend
 
-> **Una aplicación única para cada operador:** *The Guardian of Kaliche* no es un entorno genérico. Está diseñado para que **al momento de instalarse se ajuste automáticamente a tus componentes locales**. La aplicación se apropia de tu propio subsistema de Kali Linux, gestiona tu propia clave API de Inteligencia Artificial (Gemini) en un entorno seguro y genera una base de datos local cifrada y exclusiva para tu auditoría. **Tu entorno, tus reglas.**
+Motor de Inteligencia Artificial y auditoría Zero-Trust para **The Guardian of Kaliche**, construido sobre Python, FastAPI y SQLite.
 
-**The Guardian of Kaliche** es un Copiloto de Seguridad Ofensiva y Defensiva estructurado bajo un estricto modelo de **Clean Architecture** e impulsado por Inteligencia Artificial (Gemini 2.5). Se integra bidireccionalmente y en tiempo real con tu entorno nativo de **Kali Linux WSL2**.
+## Arquitectura del Sistema (Clean Architecture)
 
-## 🚀 Instalación en 1 Solo Paso (Automática)
+Este backend ha sido diseñado siguiendo estrictamente los principios de **Clean Architecture** para garantizar que el código sea testeable, mantenible y totalmente independiente de las herramientas externas (bases de datos, APIs de terceros o frameworks web). 
 
-Para tener el sistema instalado "con todo y base de datos" en una carpeta nueva, simplemente abre la aplicación de **Windows PowerShell**, pega el siguiente bloque de código completo y presiona `Enter`. 
+La distribución de carpetas está estructurada en 4 capas concéntricas:
 
-Este script descargará el sistema, configurará los entornos, instalará las dependencias y arrancará la aplicación de escritorio nativa:
-
-```powershell
-# 1. Crear carpeta maestra e ingresar
-mkdir TheGuardianOfKaliche; cd TheGuardianOfKaliche
-
-# 2. Descargar Repositorios de Clean Architecture (Frontend y Backend)
-git clone https://github.com/simviz12/the-guardian-of-kali_backend.git
-git clone https://github.com/simviz12/the-guardian-of-kali_frontend.git
-
-# 3. Crear script de Auto-Ejecución (Iniciar_Guardian.bat)
-$BatContent = @"
-@echo off
-cd /d "%~dp0"
-taskkill /IM python.exe /F 2>nul
-cd the-guardian-of-kali_backend
-if not exist ".venv" ( python -m venv .venv )
-call .venv\Scripts\activate.bat
-pip install -r requirements.txt >nul 2>&1
-start /B python -m src.main >nul 2>&1
-cd ..\the-guardian-of-kali_frontend
-if not exist "node_modules" ( call npm install >nul 2>&1 )
-if not exist "dist" ( call npm run build >nul 2>&1 )
-start /B npm run start >nul 2>&1
-exit
-"@
-Set-Content -Path "Iniciar_Guardian.bat" -Value $BatContent
-
-# 4. Iniciar la aplicación
-.\Iniciar_Guardian.bat
+```text
+the-guardian-of-kali_backend/
+├── src/
+│   ├── domain/               # Capa 1: Entidades del Negocio (Independiente)
+│   │   ├── entities/         # Modelos puros (command.py, session.py, chat_message.py)
+│   │   └── value_objects/    # Enums y constantes (RiskLevel, CommandOrigin)
+│   │
+│   ├── application/          # Capa 2: Casos de Uso (Lógica de la Aplicación)
+│   │   ├── use_cases/        # Flujos operativos (execute_command.py, chat_with_ai.py, get_history.py)
+│   │   └── ports/            # Interfaces abstractas (session_repository.py, ai_gateway.py)
+│   │
+│   ├── adapters/             # Capa 3: Adaptadores de Interfaces (Puentes externos)
+│   │   ├── ai/               # Integración con Google Gemini (gemini_ai_gateway.py)
+│   │   ├── storage/          # Persistencia SQLite (sqlite_session_repository.py)
+│   │   └── terminal/         # Interfaz con la shell local (local_subprocess_terminal.py)
+│   │
+│   └── infrastructure/       # Capa 4: Frameworks y Controladores (FastAPI)
+│       ├── config/           # Configuraciones y Prompts del Sistema (settings.py, system_prompt.py)
+│       ├── dependencies.py   # Inyección de Dependencias
+│       └── main.py           # Endpoints HTTP FastAPI (Controladores REST)
 ```
 
-> **NOTA:** Una vez ejecutado este bloque, el proyecto estará instalado. Para abrirlo todos los días en el futuro, **simplemente entra a la carpeta `TheGuardianOfKaliche` y haz doble clic en `Iniciar_Guardian.bat`**. ¡La aplicación se levantará sola en 3 segundos!
+### Flujo de Trabajo (Zero-Trust Flow)
+1. **Frontend (Capa Externa)** hace una petición REST (`/execute`, `/history/log`, `/chat`).
+2. **Infrastructure (`main.py`)** recibe la petición y delega a un **Use Case** inyectando los adaptadores correspondientes.
+3. El **Use Case** ejecuta la lógica del negocio utilizando las **Entidades del Dominio** puras y llama a los **Ports** (Interfaces abstractas).
+4. Los **Adaptadores** (ej. `SQLiteSessionRepository` o `GeminiAIGateway`) implementan los Ports y realizan el trabajo sucio de E/S.
 
-## 🏗️ Arquitectura del Sistema (Clean Architecture)
-*   **Idioma:** Interfaz visual (UI) 100% en español. Arquitectura, variables, repositorios y funciones 100% en inglés.
-*   **Backend (Python/FastAPI):**
-    *   `src/core/entities` (Entidades centrales).
-    *   `src/core/usecases` (Lógica Pura y Motor Zero-Trust).
-    *   `src/adapters` (WSL PTY, Base de datos SQLite, IA de Gemini).
-*   **Frontend (React/Electron):** Distribuido en `src/components`, `src/services` y `src/types` para total abstracción.
+## Instalación y Ejecución
 
-## ✨ Características Principales
-*   **Terminal Permanente Root:** Tu sesión de PTY arranca como `root` en Kali Linux. Tus comandos en curso no se borran al cambiar de pestañas en la interfaz.
-*   **Auditoría Integral:** Cada comando manual o asistido se guarda en `the_guardian_of_kali.db`.
-*   **Copiloto Integrado:** Un módulo Zero-Trust de IA que analiza todo lo que escupe tu consola para enseñarte cómo vulnerar o asegurar el objetivo.
+*Nota: Es recomendable utilizar el archivo `Iniciar_Guardian.bat` que automatiza todo el proceso de compilación del Frontend y Backend simultáneamente.*
+
+Para iniciarlo manualmente:
+```bash
+# 1. Crear entorno virtual
+python -m venv .venv
+
+# 2. Activar entorno
+.venv\Scripts\activate
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
+
+# 4. Iniciar servidor FastAPI
+python -m src.main
+```
+
+## Características Clave
+* **Auditoría Inmutable:** Registro automatizado de cada comando ejecutado en SQLite (`the_guardian_of_kali.db`).
+* **Copiloto Hacking IA:** Integración nativa con `gemini-2.5-flash` para sugerencias y resoluciones.
+* **Trazabilidad Absoluta:** Identificación del origen del comando (`MANUAL_USER` vs `AI`).
