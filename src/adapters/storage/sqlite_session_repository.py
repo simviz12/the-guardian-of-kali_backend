@@ -183,6 +183,37 @@ class SQLiteSessionRepository(SessionRepository):
 
             conn.commit()
 
+
+    async def save_manual_command(self, cmd) -> None:
+        import asyncio
+        await asyncio.to_thread(self._save_manual_command_sync, cmd)
+
+    def _save_manual_command_sync(self, cmd) -> None:
+        cmd_timestamp_str = cmd.timestamp.isoformat()
+        cmd_origin_str = cmd.origin.value
+        risk_level_str = cmd.risk_level.value if cmd.risk_level else None
+        session_id_str = str(cmd.session_id) if cmd.session_id else None
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO commands 
+                (session_id, command_id, text, timestamp, origin, risk_level, policy_decision)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id_str,
+                    str(cmd.id),
+                    cmd.text,
+                    cmd_timestamp_str,
+                    cmd_origin_str,
+                    risk_level_str,
+                    cmd.policy_decision.value,
+                )
+            )
+            conn.commit()
+
     async def get_history(self, filters: dict[str, Any]) -> list[Command]:
         """Queries executed commands filtered by user, session_id, date range, or risk_level.
 

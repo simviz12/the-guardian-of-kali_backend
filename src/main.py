@@ -392,5 +392,5 @@ async def log_manual_command(
         policy_decision=PolicyDecision.EXECUTED,
         session_id=uuid.UUID(payload.session_id) if payload.session_id else None
     )
-    await repo.save_command(cmd)
+    await repo.save_manual_command(cmd)
     return {"ok": True}
