@@ -36,7 +36,9 @@ class MockAIGateway(AIGateway):
 async def test_chat_without_proposed_command() -> None:
     """Verifies that advisory queries return conversational text with no proposed command."""
     gateway = MockAIGateway(response_text="To scan open ports, you can use nmap or masscan.")
-    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
+    mock_repo = AsyncMock()
+    mock_repo.get_chat_messages.return_value = []
+    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=mock_repo)
 
     session = Session(user="carlos")
     result = await use_case.run(message="How do I find open ports?", session=session)
@@ -55,7 +57,9 @@ async def test_chat_with_proposed_command_via_tool_use() -> None:
         response_text="Here is a fast SYN scan against your target.",
         suggested_command="nmap -sS -p- 10.10.10.100",
     )
-    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
+    mock_repo = AsyncMock()
+    mock_repo.get_chat_messages.return_value = []
+    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=mock_repo)
 
     target = Target(value="10.10.10.0/24")
     session = Session(user="carlos", authorized_targets=[target])
@@ -75,7 +79,9 @@ async def test_chat_with_proposed_command_via_tool_use() -> None:
 async def test_chat_passes_recent_session_history_context() -> None:
     """Verifies that the use case supplies recent commands to the AI context."""
     gateway = MockAIGateway(response_text="Proceeding with next step.")
-    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
+    mock_repo = AsyncMock()
+    mock_repo.get_chat_messages.return_value = []
+    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=mock_repo)
 
     session = Session(user="carlos")
     session.add_command(Command(text="ping 10.10.10.1", origin=CommandOrigin.MANUAL_USER))
@@ -85,4 +91,4 @@ async def test_chat_passes_recent_session_history_context() -> None:
 
     assert gateway.last_history is not None
     assert len(gateway.last_history) >= 2
-    assert "ping 10.10.10.1" in gateway.last_history[0]["content"]
+    assert any("ping 10.10.10.1" in h["content"] for h in gateway.last_history)

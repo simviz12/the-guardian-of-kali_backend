@@ -55,8 +55,11 @@ class ChatWithAIUseCase:
         })
 
         # Fetch actual chat messages for this session
+        chat_messages = []
         if session.id:
             chat_messages = await self._repository.get_chat_messages(str(session.id))
+            
+        if chat_messages:
             # Take the last 20 messages for context
             for msg in chat_messages[-20:]:
                 sender = msg.get("sender")
@@ -79,7 +82,7 @@ class ChatWithAIUseCase:
                     "content": content,
                 })
         else:
-            # Fallback to executed commands if no session ID provided
+            # Fallback to executed commands if no chat history
             for cmd in session.commands[-10:]:
                 history.append({
                     "role": "system",

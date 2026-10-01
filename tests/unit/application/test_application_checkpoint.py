@@ -220,7 +220,9 @@ async def test_chat_with_ai_tool_use_command_proposal() -> None:
         canned_response="Let us enumerate SMB shares on the target.",
         suggested_command="smbclient -L //10.10.10.20",
     )
-    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
+    mock_repo = AsyncMock()
+    mock_repo.get_chat_messages.return_value = []
+    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=mock_repo)
 
     target = Target(value="10.10.10.20")
     session = Session(user="carlos", authorized_targets=[target])
@@ -243,7 +245,9 @@ async def test_chat_with_ai_tool_use_command_proposal() -> None:
 async def test_chat_with_ai_passes_command_history() -> None:
     """Verifies that previous commands in the session are passed into the context history."""
     gateway = FakeAIGateway(canned_response="Continuing analysis...")
-    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
+    mock_repo = AsyncMock()
+    mock_repo.get_chat_messages.return_value = []
+    use_case = ChatWithAIUseCase(ai_gateway=gateway, repository=mock_repo)
 
     session = Session(user="carlos")
     session.add_command(Command(text="nmap 10.10.10.5", origin=CommandOrigin.MANUAL_USER))
