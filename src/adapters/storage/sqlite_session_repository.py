@@ -184,32 +184,33 @@ class SQLiteSessionRepository(SessionRepository):
             conn.commit()
 
 
-    async def save_manual_command(self, cmd) -> None:
+    async def save_manual_command(self, session_id: str, cmd) -> None:
         import asyncio
-        await asyncio.to_thread(self._save_manual_command_sync, cmd)
+        await asyncio.to_thread(self._save_manual_command_sync, session_id, cmd)
 
-    def _save_manual_command_sync(self, cmd) -> None:
+    def _save_manual_command_sync(self, session_id: str, cmd) -> None:
+        if not session_id:
+            return
+            
         cmd_timestamp_str = cmd.timestamp.isoformat()
         cmd_origin_str = cmd.origin.value
         risk_level_str = cmd.risk_level.value if cmd.risk_level else None
-        session_id_str = str(cmd.session_id) if cmd.session_id else None
         
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
                 INSERT INTO commands 
-                (session_id, command_id, text, timestamp, origin, risk_level, policy_decision)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (session_id, text, origin, target, risk_level, policy_decision, result, timestamp)
+                VALUES (?, ?, ?, ?, ?, 'EXECUTED', 'Manual execution', ?)
                 """,
                 (
-                    session_id_str,
-                    str(cmd.id),
+                    session_id,
                     cmd.text,
-                    cmd_timestamp_str,
                     cmd_origin_str,
+                    cmd.target,
                     risk_level_str,
-                    cmd.policy_decision.value,
+                    cmd_timestamp_str
                 )
             )
             conn.commit()

@@ -365,7 +365,7 @@ if __name__ == "__main__":
         reload=False,
     )
 
-import src.dependencies
+from src.dependencies import get_session_repository
 from src.application.ports.session_repository import SessionRepository
 from pydantic import BaseModel
 class LogManualCommandPayload(BaseModel):
@@ -375,22 +375,25 @@ class LogManualCommandPayload(BaseModel):
 @app.post("/history/log", tags=["Audit & History"])
 async def log_manual_command(
     payload: LogManualCommandPayload,
-    repo: SessionRepository = Depends(src.dependencies.get_session_repository)
+    repo: SessionRepository = Depends(get_session_repository)
 ):
-    import uuid
-    from datetime import datetime
-    from src.domain.entities.command import Command, CommandOrigin, PolicyDecision
-    from src.domain.value_objects.risk_level import RiskLevel
-    
-    cmd = Command(
-        id=uuid.uuid4(),
-        text=payload.command,
-        timestamp=datetime.utcnow(),
-        origin=CommandOrigin.USER,
-        user="carlos",  # default
-        risk_level=RiskLevel.LOW,
-        policy_decision=PolicyDecision.EXECUTED,
-        session_id=uuid.UUID(payload.session_id) if payload.session_id else None
-    )
-    await repo.save_manual_command(cmd)
-    return {"ok": True}
+    try:
+        from datetime import datetime
+        from src.domain.entities.command import Command
+        from src.domain.value_objects.command_origin import CommandOrigin
+        from src.domain.value_objects.risk_level import RiskLevel
+        
+        if not payload.session_id:
+            return {"ok": False, "error": "No session ID"}
+            
+        cmd = Command(
+            text=payload.command,
+            origin=CommandOrigin.MANUAL_USER,
+            timestamp=datetime.utcnow(),
+            risk_level=RiskLevel.LOW
+        )
+        await repo.save_manual_command(payload.session_id, cmd)
+        return {"ok": True}
+    except Exception as e:
+        import traceback
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}
