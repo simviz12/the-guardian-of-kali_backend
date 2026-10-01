@@ -113,6 +113,15 @@ class SQLiteSessionRepository(SessionRepository):
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Ensure session exists to prevent FOREIGN KEY constraint failed
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sessions (id, user, start)
+                VALUES (?, 'root', ?)
+                """,
+                (session_id, cmd_timestamp_str)
+            )
 
             # Upsert session record
             cursor.execute(
@@ -198,6 +207,15 @@ class SQLiteSessionRepository(SessionRepository):
         
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Ensure session exists to prevent FOREIGN KEY constraint failed
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sessions (id, user, start)
+                VALUES (?, 'root', ?)
+                """,
+                (session_id, cmd_timestamp_str)
+            )
             cursor.execute(
                 """
                 INSERT INTO commands 
@@ -278,6 +296,15 @@ class SQLiteSessionRepository(SessionRepository):
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Ensure session exists to prevent FOREIGN KEY constraint failed
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sessions (id, user, start)
+                VALUES (?, 'root', ?)
+                """,
+                (session_id, cmd_timestamp_str)
+            )
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
@@ -343,6 +370,15 @@ class SQLiteSessionRepository(SessionRepository):
         ts = timestamp or datetime.now(UTC).isoformat()
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Ensure session exists to prevent FOREIGN KEY constraint failed
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sessions (id, user, start)
+                VALUES (?, 'root', ?)
+                """,
+                (session_id, cmd_timestamp_str)
+            )
             cursor.execute(
                 """
                 INSERT INTO chat_messages (
@@ -403,6 +439,15 @@ class SQLiteSessionRepository(SessionRepository):
     def _get_chat_messages_sync(self, session_id: str) -> list[dict]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Ensure session exists to prevent FOREIGN KEY constraint failed
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sessions (id, user, start)
+                VALUES (?, 'root', ?)
+                """,
+                (session_id, cmd_timestamp_str)
+            )
             cursor.execute(
                 """
                 SELECT id, session_id, sender, text,
