@@ -1,3 +1,4 @@
+from unittest.mock import MagicMock, AsyncMock
 """Adversarial security audit test suite for Day 35 - Checkpoint #7 (Security Audit).
 
 Validates the security policy engine against adversarial evasion techniques:
@@ -284,7 +285,7 @@ class TestPromptInjectionAndChatBypassAdversarial:
         """
         poisoned_command = "rm -rf / --no-preserve-root"
         fake_ai = PromptInjectingAIGateway(malicious_payload=poisoned_command)
-        chat_use_case = ChatWithAIUseCase(ai_gateway=fake_ai)
+        chat_use_case = ChatWithAIUseCase(ai_gateway=fake_ai, repository=AsyncMock())
 
         session = Session(user="carlos")
         adversarial_user_prompt = (

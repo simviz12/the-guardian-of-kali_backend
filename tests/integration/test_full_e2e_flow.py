@@ -1,3 +1,4 @@
+from unittest.mock import MagicMock, AsyncMock
 """Full End-to-End (E2E) integration test suite for Day 41.
 
 Simulates the complete system workflow:
@@ -96,7 +97,7 @@ def e2e_system(tmp_path):
         repository=real_repo,
         policy_evaluator=policy_uc,
     )
-    chat_uc = ChatWithAIUseCase(ai_gateway=fake_ai)
+    chat_uc = ChatWithAIUseCase(ai_gateway=fake_ai, repository=AsyncMock())
     history_uc = GetSessionHistoryUseCase(repository=real_repo)
 
     app.dependency_overrides[get_session_repository] = lambda: real_repo

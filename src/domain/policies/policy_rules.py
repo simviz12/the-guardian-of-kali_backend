@@ -54,7 +54,7 @@ PATTERN_HOST_FIREWALL_TAMPERING = (
 # Blocks: 'sudo su', 'sudo -i', 'sudo bash', 'sudo sh', 'sudo zsh'
 # Rationale: We allow sudo for tools, but prevent invoking raw interactive root shells.
 PATTERN_PRIVILEGE_ESCALATION = (
-    r"\bsudo\s+(?:-[a-zA-Z0-9]*[si]|su\b|bash\b|sh\b|zsh\b|dash\b)"
+    r"\bsudo\s+(?:-[a-zA-Z0-9]*[si]|su\b|bash\b|sh\b|zsh\b|dash\b|nmap\s+--(?:script|interactive)\b)"
 )
 
 

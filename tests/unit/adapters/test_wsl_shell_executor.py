@@ -1,7 +1,7 @@
 """Unit tests for the WSLShellExecutor adapter."""
 
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 

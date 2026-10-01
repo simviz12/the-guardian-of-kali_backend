@@ -1,3 +1,4 @@
+from unittest.mock import MagicMock, AsyncMock
 """Comprehensive integration and unit tests for Day 30 - Checkpoint #6.
 
 Covers:
@@ -77,7 +78,7 @@ def checkpoint_env(tmp_path):
     gateway = FakeScenarioAIGateway()
     shell = TrackingShellExecutor()
 
-    chat_uc = ChatWithAIUseCase(ai_gateway=gateway)
+    chat_uc = ChatWithAIUseCase(ai_gateway=gateway, repository=AsyncMock())
     history_uc = GetSessionHistoryUseCase(repository=repo)
     execute_uc = ExecuteCommandUseCase(executor=shell, repository=repo)
 
