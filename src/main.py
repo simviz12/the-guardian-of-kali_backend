@@ -371,6 +371,7 @@ from pydantic import BaseModel
 class LogManualCommandPayload(BaseModel):
     command: str
     session_id: str | None = None
+    origin: str = 'MANUAL_USER' 
 
 @app.post("/history/log", tags=["Audit & History"])
 async def log_manual_command(
@@ -388,7 +389,7 @@ async def log_manual_command(
             
         cmd = Command(
             text=payload.command,
-            origin=CommandOrigin.MANUAL_USER,
+            origin=CommandOrigin(payload.origin),
             timestamp=datetime.utcnow(),
             risk_level=RiskLevel.LOW
         )
