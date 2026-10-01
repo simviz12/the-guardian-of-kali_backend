@@ -365,6 +365,8 @@ if __name__ == "__main__":
         reload=False,
     )
 
+import src.dependencies
+from src.application.ports.session_repository import SessionRepository
 from pydantic import BaseModel
 class LogManualCommandPayload(BaseModel):
     command: str
@@ -373,11 +375,12 @@ class LogManualCommandPayload(BaseModel):
 @app.post("/history/log", tags=["Audit & History"])
 async def log_manual_command(
     payload: LogManualCommandPayload,
-    repo: SessionRepository = Depends(get_session_repository)
+    repo: SessionRepository = Depends(src.dependencies.get_session_repository)
 ):
     import uuid
     from datetime import datetime
-    from src.core.entities.command import Command, CommandOrigin, PolicyDecision, RiskLevel
+    from src.domain.entities.command import Command, CommandOrigin, PolicyDecision
+    from src.domain.value_objects.risk_level import RiskLevel
     
     cmd = Command(
         id=uuid.uuid4(),
