@@ -392,10 +392,16 @@ def create_app() -> FastAPI:
         try:
             await session.start()
         except FileNotFoundError:
+            import sys
+            msg = (
+                "wsl.exe not found. Ensure WSL2 and the Kali distro are installed."
+                if sys.platform == "win32"
+                else "bash shell not found on system."
+            )
             await websocket.send_json(
                 {
                     "type": "error",
-                    "data": "wsl.exe not found. Ensure WSL2 and the Kali distro are installed.",
+                    "data": msg,
                 }
             )
             await websocket.close()

@@ -41,11 +41,17 @@ class WSLShellExecutor(ShellExecutor):
         self._timeout_seconds = timeout_seconds
 
     def _build_args(self, command_text: str) -> list[str]:
-        """Builds the wsl.exe argument vector for a bash ``-c`` invocation.
+        """Builds the execution argument vector for a bash ``-c`` invocation.
 
-        Running through ``bash -c`` preserves pipes, redirections, environment
-        variables and compound statements exactly as the operator typed them.
+        On Windows (by default), it runs inside WSL2. On Linux and macOS, or when
+        GUARDIAN_USE_NATIVE_SHELL=1 is set, it invokes local bash directly.
         """
+        import os
+        import sys
+
+        if sys.platform != "win32" or os.environ.get("GUARDIAN_USE_NATIVE_SHELL") == "1":
+            return ["bash", "-c", command_text]
+
         return [
             "wsl.exe",
             "-d",

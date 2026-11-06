@@ -41,20 +41,32 @@ class StreamingShellSession:
         return self._process is not None and self._process.returncode is None
 
     async def start(self) -> None:
-        """Spawns the interactive bash process inside the WSL2 distribution."""
-        self._process = await asyncio.create_subprocess_exec(
-            "wsl.exe",
-            "-d",
-            self._distro,
-            "-u",
-            self._user,
-            "-e",
-            "bash",
-            "-i",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
+        """Spawns the interactive bash process inside WSL2 on Windows or native bash on Unix."""
+        import os
+        import sys
+
+        if sys.platform != "win32" or os.environ.get("GUARDIAN_USE_NATIVE_SHELL") == "1":
+            self._process = await asyncio.create_subprocess_exec(
+                "bash",
+                "-i",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+        else:
+            self._process = await asyncio.create_subprocess_exec(
+                "wsl.exe",
+                "-d",
+                self._distro,
+                "-u",
+                self._user,
+                "-e",
+                "bash",
+                "-i",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
 
     async def write(self, data: str) -> None:
         """Writes operator input (keystrokes / command lines) to the shell stdin."""
