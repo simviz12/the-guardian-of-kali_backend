@@ -1,5 +1,6 @@
 """FastAPI application entrypoint for The Guardian of Kali backend service."""
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -8,7 +9,15 @@ from uuid import UUID
 import anthropic
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 
 load_dotenv()
 
@@ -350,6 +359,83 @@ def create_app() -> FastAPI:
         from src.dependencies import get_ai_gateway
         get_ai_gateway.cache_clear()
         return {'ok': True}
+
+    # ────────────────────────────────────────────
+    # Real-time Streaming Terminal (WebSocket / PTY-style bridge)
+    # ────────────────────────────────────────────
+
+    @app.websocket("/ws/terminal")
+    async def terminal_stream(websocket: WebSocket) -> None:
+        """Bidirectional real-time terminal streaming over WebSocket.
+
+        Protocol (text frames):
+          * Client → server: either raw keystrokes/command text, or a JSON control
+            frame ``{"type": "input", "data": "..."}`` / ``{"type": "signal",
+            "data": "SIGINT"|"SIGTERM"}`` / ``{"type": "close"}``.
+          * Server → client: JSON frames ``{"type": "output", "data": "..."}`` for
+            streamed stdout/stderr and ``{"type": "exit", "code": <int>}`` on exit.
+
+        A dedicated bash session is spawned per connection (concurrency-safe), and
+        the process is always terminated and reaped when the socket closes.
+        """
+        import json
+        import os
+
+        await websocket.accept()
+
+        distro = os.environ.get("WSL_DISTRO", "kali-linux")
+        user = os.environ.get("WSL_USER", "root")
+
+        from src.adapters.terminal.streaming_shell_executor import StreamingShellSession
+
+        session = StreamingShellSession(distro=distro, user=user)
+        try:
+            await session.start()
+        except FileNotFoundError:
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "data": "wsl.exe not found. Ensure WSL2 and the Kali distro are installed.",
+                }
+            )
+            await websocket.close()
+            return
+
+        async def pump_output() -> None:
+            async for chunk in session.stream_output():
+                await websocket.send_json({"type": "output", "data": chunk})
+            await websocket.send_json({"type": "exit", "code": await session.wait()})
+
+        output_task = asyncio.create_task(pump_output())
+
+        try:
+            while True:
+                message = await websocket.receive_text()
+                data = message
+                if message.startswith("{"):
+                    try:
+                        parsed = json.loads(message)
+                        msg_type = parsed.get("type", "input")
+                        if msg_type == "close":
+                            break
+                        if msg_type == "signal":
+                            await session.close()
+                            break
+                        data = parsed.get("data", "")
+                    except json.JSONDecodeError:
+                        data = message
+                await session.write(data)
+        except WebSocketDisconnect:
+            pass
+        except Exception as exc:  # noqa: BLE001 - never let the socket crash the server
+            logger.error(f"Terminal WebSocket error: {exc!s}")
+        finally:
+            output_task.cancel()
+            await session.close()
+            try:
+                await websocket.close()
+            except RuntimeError:
+                pass
 
     return app
 

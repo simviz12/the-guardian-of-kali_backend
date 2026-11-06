@@ -1,7 +1,7 @@
-"""Unit tests for the WSLShellExecutor adapter."""
+"""Unit tests for the WSLShellExecutor adapter (asyncio subprocess based)."""
 
-import subprocess
-from unittest.mock import MagicMock, AsyncMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -9,6 +9,17 @@ from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.application.ports.shell_executor import ShellExecutor
 from src.domain.entities.command import Command
 from src.domain.value_objects.command_origin import CommandOrigin
+
+
+def _make_process(returncode: int, stdout: bytes, stderr: bytes) -> MagicMock:
+    """Builds a mock asyncio subprocess whose ``communicate`` returns the given output."""
+    process = MagicMock()
+    process.returncode = returncode
+    process.communicate = AsyncMock(return_value=(stdout, stderr))
+    process.wait = AsyncMock(return_value=returncode)
+    process.terminate = MagicMock()
+    process.kill = MagicMock()
+    return process
 
 
 def test_wsl_shell_executor_implements_interface() -> None:
@@ -23,20 +34,25 @@ async def test_execute_successful_command() -> None:
     executor = WSLShellExecutor(distro="kali-linux", user="ia-user", timeout_seconds=10.0)
     command = Command(text="whoami", origin=CommandOrigin.AI)
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.stdout = "ia-user\n"
-    mock_process.stderr = ""
+    mock_process = _make_process(0, b"ia-user\n", b"")
 
-    with patch("subprocess.run", return_value=mock_process) as mock_run:
+    with patch(
+        "asyncio.create_subprocess_exec", AsyncMock(return_value=mock_process)
+    ) as mock_exec:
         result = await executor.execute(command)
 
-        mock_run.assert_called_once_with(
-            ["wsl.exe", "-d", "kali-linux", "-u", "ia-user", "-e", "bash", "-c", "whoami"],
-            capture_output=True,
-            text=True,
-            timeout=10.0,
-            check=False,
+        mock_exec.assert_called_once_with(
+            "wsl.exe",
+            "-d",
+            "kali-linux",
+            "-u",
+            "ia-user",
+            "-e",
+            "bash",
+            "-c",
+            "whoami",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
         assert result.command_text == "whoami"
@@ -52,12 +68,9 @@ async def test_execute_command_with_stderr_and_non_zero_exit_code() -> None:
     executor = WSLShellExecutor()
     command = Command(text="cat /etc/shadow", origin=CommandOrigin.AI)
 
-    mock_process = MagicMock()
-    mock_process.returncode = 1
-    mock_process.stdout = ""
-    mock_process.stderr = "cat: /etc/shadow: Permission denied\n"
+    mock_process = _make_process(1, b"", b"cat: /etc/shadow: Permission denied\n")
 
-    with patch("subprocess.run", return_value=mock_process):
+    with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=mock_process)):
         result = await executor.execute(command)
 
         assert result.command_text == "cat /etc/shadow"
@@ -68,16 +81,26 @@ async def test_execute_command_with_stderr_and_non_zero_exit_code() -> None:
 
 @pytest.mark.asyncio
 async def test_execute_command_timeout_clean_termination() -> None:
-    """Test hung command execution triggering TimeoutExpired and resulting in exit code 124."""
+    """Test a hung command: communicate() times out → exit code 124 and clean termination."""
     executor = WSLShellExecutor(timeout_seconds=2.0)
     command = Command(text="sleep 100", origin=CommandOrigin.AI)
 
-    with patch(
-        "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["wsl.exe"], timeout=2.0)
-    ):
+    mock_process = _make_process(0, b"", b"")
+    # communicate never returns normally: it raises TimeoutError (via wait_for).
+    mock_process.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+    # After terminate(), the process reports it has exited.
+    mock_process.returncode = None
+
+    def _mark_terminated() -> None:
+        mock_process.returncode = 143
+
+    mock_process.terminate = MagicMock(side_effect=_mark_terminated)
+
+    with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=mock_process)):
         result = await executor.execute(command)
 
         assert result.command_text == "sleep 100"
         assert result.exit_code == 124
         assert "timed out after 2.0 seconds" in result.stderr
         assert result.duration_ms >= 0.0
+        mock_process.terminate.assert_called_once()

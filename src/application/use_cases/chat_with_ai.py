@@ -76,7 +76,7 @@ class ChatWithAIUseCase:
                 elif status == "failed":
                     content += f"\n\n[System] Command failed to execute."
 
-                role = "user" if sender == "User" else "assistant"
+                role = "user" if (sender or "").lower() == "user" else "assistant"
                 history.append({
                     "role": role,
                     "content": content,
