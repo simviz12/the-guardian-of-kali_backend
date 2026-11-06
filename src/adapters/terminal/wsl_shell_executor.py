@@ -1,7 +1,11 @@
-"""Adapter implementing ShellExecutor to run commands inside Kali Linux on WSL2 under ia-user."""
+"""Adapter implementing ShellExecutor to run commands inside Kali Linux on WSL2.
+
+Uses a fully non-blocking asyncio subprocess so the FastAPI event loop is never
+blocked, with robust timeout handling that cleanly terminates (and, if needed,
+kills) hung processes to avoid orphaned/zombie WSL processes.
+"""
 
 import asyncio
-import subprocess
 import time
 
 from src.application.dtos.responses import CommandResult
@@ -10,12 +14,13 @@ from src.domain.entities.command import Command
 
 
 class WSLShellExecutor(ShellExecutor):
-    """Executes terminal commands inside a target WSL2 distribution enforcing the restricted ia-user.
+    """Executes terminal commands inside a target WSL2 distribution.
 
     Attributes:
         _distro (str): Target WSL2 distribution name (defaults to 'kali-linux').
-        _user (str): Linux user account to execute under (defaults strictly to 'ia-user').
-        _timeout_seconds (float): Maximum execution duration before killing the hung process.
+        _user (str): Linux user account to execute under.
+        _timeout_seconds (float): Maximum execution duration before the process is
+            cleanly terminated to prevent hung or orphaned processes.
     """
 
     def __init__(
@@ -28,38 +33,20 @@ class WSLShellExecutor(ShellExecutor):
 
         Args:
             distro (str): WSL2 distribution name. Defaults to 'kali-linux'.
-            user (str): Restricted Linux username. Defaults strictly to 'root' to allow full tools without sudo hangs.
-            timeout_seconds (float): Execution timeout in seconds. Defaults to 180.0 (3 minutes).
+            user (str): Linux username to run under. Defaults to 'root'.
+            timeout_seconds (float): Execution timeout in seconds. Defaults to 180.0.
         """
         self._distro = distro
         self._user = user
         self._timeout_seconds = timeout_seconds
 
-    async def execute(self, command: Command) -> CommandResult:
-        """Executes a command entity inside Kali Linux WSL2 as the restricted ia-user.
+    def _build_args(self, command_text: str) -> list[str]:
+        """Builds the wsl.exe argument vector for a bash ``-c`` invocation.
 
-        Captures stdout, stderr, exit code, and execution duration.
-        Gracefully terminates hung processes when the timeout is reached.
-
-        Args:
-            command (Command): The command entity to execute.
-
-        Returns:
-            CommandResult: Standard output, error, exit code, and execution time in ms.
+        Running through ``bash -c`` preserves pipes, redirections, environment
+        variables and compound statements exactly as the operator typed them.
         """
-        # Run blocking subprocess.run in an async thread pool executor
-        return await asyncio.to_thread(self._run_subprocess, command.text)
-
-    def _run_subprocess(self, command_text: str) -> CommandResult:
-        """Synchronous helper that invokes wsl.exe with strict timeout and execution capture.
-
-        Args:
-            command_text (str): Raw shell command to run in bash.
-
-        Returns:
-            CommandResult: Structured result object.
-        """
-        wsl_args = [
+        return [
             "wsl.exe",
             "-d",
             self._distro,
@@ -71,38 +58,74 @@ class WSLShellExecutor(ShellExecutor):
             command_text,
         ]
 
+    async def execute(self, command: Command) -> CommandResult:
+        """Executes a command entity inside Kali Linux WSL2.
+
+        Captures stdout, stderr, exit code and execution duration without blocking
+        the event loop. Hung processes are cleanly terminated when the timeout is
+        reached, and the child is always reaped to avoid zombies.
+
+        Args:
+            command (Command): The command entity to execute.
+
+        Returns:
+            CommandResult: Standard output, error, exit code and execution time (ms).
+        """
         start_time = time.perf_counter()
+        args = self._build_args(command.text)
+
+        process = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
         try:
-            process = subprocess.run(
-                wsl_args,
-                capture_output=True,
-                text=True,
-                timeout=self._timeout_seconds,
-                check=False,
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                process.communicate(), timeout=self._timeout_seconds
             )
-
+        except asyncio.TimeoutError:
+            await self._terminate(process)
             duration_ms = (time.perf_counter() - start_time) * 1000.0
-
             return CommandResult(
-                command_text=command_text,
-                exit_code=process.returncode,
-                stdout=process.stdout or "",
-                stderr=process.stderr or "",
-                duration_ms=duration_ms,
-            )
-
-        except subprocess.TimeoutExpired as exc:
-            duration_ms = (time.perf_counter() - start_time) * 1000.0
-            stdout_str = (
-                exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            )
-            stderr_str = f"Command timed out after {self._timeout_seconds} seconds and was cleanly terminated."
-
-            return CommandResult(
-                command_text=command_text,
+                command_text=command.text,
                 exit_code=124,  # Standard Linux timeout exit code
-                stdout=stdout_str,
-                stderr=stderr_str,
+                stdout="",
+                stderr=(
+                    f"Command timed out after {self._timeout_seconds} seconds "
+                    "and was cleanly terminated."
+                ),
                 duration_ms=duration_ms,
             )
+
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+        return CommandResult(
+            command_text=command.text,
+            exit_code=process.returncode if process.returncode is not None else 1,
+            stdout=stdout_bytes.decode(errors="replace") if stdout_bytes else "",
+            stderr=stderr_bytes.decode(errors="replace") if stderr_bytes else "",
+            duration_ms=duration_ms,
+        )
+
+    @staticmethod
+    async def _terminate(process: asyncio.subprocess.Process) -> None:
+        """Gracefully terminates a process, escalating to kill, then reaps it.
+
+        Sends SIGTERM first to allow a clean shutdown; if the process does not exit
+        within a short grace period it is forcibly killed. The process is always
+        awaited afterwards so no zombie/orphan child is left behind.
+        """
+        if process.returncode is not None:
+            return
+        try:
+            process.terminate()
+        except ProcessLookupError:
+            return
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                return
+            await process.wait()
