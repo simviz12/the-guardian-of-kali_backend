@@ -1,17 +1,17 @@
 """Integration tests for WSLShellExecutor running directly against WSL2 Kali Linux."""
 
-import shutil
-
 import pytest
 
 from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
 from src.domain.entities.command import Command
 from src.domain.value_objects.command_origin import CommandOrigin
+from tests.integration._wsl_support import WSL_UNAVAILABLE_REASON, wsl_distro_available
 
-# Skip integration tests if wsl.exe is not available (e.g. standard Linux GitHub Actions runners)
+# Skip when wsl.exe is absent OR the target Kali distro is not installed
+# (e.g. Linux CI runners, or a Windows box with WSL for Docker but no Kali).
 pytestmark = pytest.mark.skipif(
-    shutil.which("wsl.exe") is None,
-    reason="WSL2 (wsl.exe) is not installed or available on this host environment.",
+    not wsl_distro_available(),
+    reason=WSL_UNAVAILABLE_REASON,
 )
 
 

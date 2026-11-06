@@ -9,13 +9,14 @@ Simulates the complete system workflow:
 5. Persistent Audit & History Verification in SQLite.
 """
 
-import shutil
 import sqlite3
 from typing import Any
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+
+from tests.integration._wsl_support import WSL_UNAVAILABLE_REASON, wsl_distro_available
 
 from src.adapters.storage.sqlite_session_repository import SQLiteSessionRepository
 from src.adapters.terminal.wsl_shell_executor import WSLShellExecutor
@@ -115,8 +116,8 @@ def e2e_system(tmp_path):
 
 
 @pytest.mark.skipif(
-    shutil.which("wsl.exe") is None,
-    reason="WSL2 (wsl.exe) is required for real end-to-end Kali Linux execution tests.",
+    not wsl_distro_available(),
+    reason=WSL_UNAVAILABLE_REASON,
 )
 def test_full_e2e_flow_session_chat_policy_real_wsl_and_sqlite(e2e_system) -> None:
     """End-to-End Integration Scenario 1:
@@ -213,8 +214,8 @@ def test_full_e2e_flow_session_chat_policy_real_wsl_and_sqlite(e2e_system) -> No
 
 
 @pytest.mark.skipif(
-    shutil.which("wsl.exe") is None,
-    reason="WSL2 (wsl.exe) is required for real end-to-end Kali Linux execution tests.",
+    not wsl_distro_available(),
+    reason=WSL_UNAVAILABLE_REASON,
 )
 def test_full_e2e_flow_real_wsl_echo_command_identity(e2e_system) -> None:
     """End-to-End Integration Scenario 2:
@@ -326,8 +327,8 @@ def test_full_e2e_flow_unauthorized_target_blocked_before_wsl(e2e_system) -> Non
 
 
 @pytest.mark.skipif(
-    shutil.which("wsl.exe") is None,
-    reason="WSL2 (wsl.exe) is required for real end-to-end Kali Linux execution tests.",
+    not wsl_distro_available(),
+    reason=WSL_UNAVAILABLE_REASON,
 )
 def test_full_e2e_flow_manual_user_command_bypasses_filter_and_executes_in_wsl(e2e_system) -> None:
     """End-to-End Integration Scenario 5:
