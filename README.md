@@ -3,12 +3,30 @@
 
 ---
 
-## ⚡ EJECUCIÓN RÁPIDA MEDIANTE SCRIPTS (.BAT)
+## ⚡ INSTALACIÓN Y ARRANQUE EN 1 CLIC (`setup_and_run.bat`)
 
-Para la ejecución conjunta de todo el ecosistema (Frontend + Backend), utiliza los scripts batch en la raíz del proyecto:
+> **No instales este backend por separado.** La forma recomendada de instalar **y** ejecutar
+> todo el ecosistema (frontend + backend) es un único script: **`setup_and_run.bat`**, que vive
+> en el repositorio del **frontend**.
 
-* 🛠️ **`Instalar_Guardian.bat`**: Instala el entorno virtual de Python `.venv`, dependencias de `requirements.txt` y prepara Node.js.
-* 🚀 **`Iniciar_Guardian.bat`**: Lanza el servidor backend FastAPI en segundo plano y abre la aplicación en ~2 segundos.
+Descarga solo ese `.bat` en una carpeta vacía y haz **doble clic** — él se encarga de todo:
+
+* 📥 **Clona ambos repos** (frontend + backend) desde GitHub.
+* 🛠️ Instala **Git, Node.js y Python** si faltan (vía `winget`), crea el `.venv`, instala
+  `requirements.txt` y las dependencias de Node, y compila la app de escritorio.
+* 🚀 Arranca el backend FastAPI, espera a que `/health` responda y **abre la aplicación**.
+
+👉 **Enlace directo del instalador:**
+`https://raw.githubusercontent.com/simviz12/the-guardian-of-kali_frontend/main/setup_and_run.bat`
+
+📖 **Guía paso a paso (incluye WSL2 + Kali):**
+[INSTALACION.md](https://github.com/simviz12/the-guardian-of-kali_frontend/blob/main/INSTALACION.md)
+
+> Requisito previo manual (una sola vez, necesita admin + reinicio):
+> `wsl --install -d kali-linux`. El `.bat` avisa si falta WSL.
+
+> _Scripts heredados: `Instalar_Guardian.bat` (solo instala) e `Iniciar_Guardian.bat` (solo lanza).
+> `setup_and_run.bat` los reemplaza haciendo ambas cosas en un paso._
 
 ---
 
