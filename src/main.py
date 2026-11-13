@@ -22,6 +22,11 @@ from fastapi import (
 load_dotenv()
 
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from src.domain.policies.risk_classifier import classify_command_risk
+from src.domain.policies.validator import validate_command
+from src.domain.value_objects.command_origin import CommandOrigin
 
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
 from src.application.use_cases.evaluate_policy import EvaluatePolicyUseCase
@@ -268,6 +273,39 @@ def create_app() -> FastAPI:
         }
 
     # ────────────────────────────────────────────
+    # Policy Engine Evaluation (gate used by the UI before running AI commands)
+    # ────────────────────────────────────────────
+
+    class PolicyEvaluatePayload(BaseModel):
+        command: str
+        target: str | None = None
+        authorized_targets: list[str] | None = None
+        operation_mode: str | None = None
+
+    @app.post("/policy/evaluate", status_code=status.HTTP_200_OK, tags=["Policy Engine"])
+    async def evaluate_policy(payload: PolicyEvaluatePayload) -> dict[str, str]:
+        """Runs an AI-proposed command through blacklist, scope and risk checks.
+
+        Nothing is executed here: the UI calls this before offering or running a
+        proposed command and must refuse to run it when the action is BLOCK.
+        """
+        targets = [Target(value=t) for t in (payload.authorized_targets or []) if t.strip()]
+        session = Session(
+            user="operator",
+            authorized_targets=targets,
+            is_autonomous=payload.operation_mode == "autonomous",
+        )
+        # The target is deliberately not taken from the AI: it is extracted from the
+        # command text so the scope check reflects what would really be contacted.
+        command = Command(text=payload.command, origin=CommandOrigin.AI)
+        decision = validate_command(command, session)
+        return {
+            "action": decision.action.value,
+            "risk_level": decision.risk_level.value,
+            "reason": decision.reason,
+        }
+
+    # ────────────────────────────────────────────
     # Chat Message Persistence Endpoints
     # ────────────────────────────────────────────
 
@@ -329,7 +367,6 @@ def create_app() -> FastAPI:
             messages=messages,
         )
 
-    from pydantic import BaseModel
     class ApiKeyPayload(BaseModel):
         api_key: str
 
@@ -349,7 +386,7 @@ def create_app() -> FastAPI:
                 for line in lines:
                     if not line.startswith('GEMINI_API_KEY=') and not line.startswith('GOOGLE_API_KEY='):
                         f.write(line)
-                if not lines[-1].endswith('\n'):
+                if lines and not lines[-1].endswith('\n'):
                     f.write('\n')
                 f.write(f'GEMINI_API_KEY="{payload.api_key}"\n')
         except FileNotFoundError:
@@ -380,6 +417,14 @@ def create_app() -> FastAPI:
         """
         import json
         import os
+
+        # WebSockets are not covered by CORS: without this check any web page open
+        # in a browser on this machine could attach to a root shell. Browsers always
+        # send Origin, so only the app's own origins are accepted.
+        origin = websocket.headers.get("origin")
+        if origin is not None and origin not in allowed_origins:
+            await websocket.close(code=1008)
+            return
 
         await websocket.accept()
 
@@ -463,7 +508,9 @@ from pydantic import BaseModel
 class LogManualCommandPayload(BaseModel):
     command: str
     session_id: str | None = None
-    origin: str = 'MANUAL_USER' 
+    origin: str = 'MANUAL_USER'
+    # True when the policy engine refused the command and it was never run.
+    blocked: bool = False
 
 @app.post("/history/log", tags=["Audit & History"])
 async def log_manual_command(
@@ -471,7 +518,7 @@ async def log_manual_command(
     repo: SessionRepository = Depends(get_session_repository)
 ):
     try:
-        from datetime import datetime
+        from datetime import UTC, datetime
         from src.domain.entities.command import Command
         from src.domain.value_objects.command_origin import CommandOrigin
         from src.domain.value_objects.risk_level import RiskLevel
@@ -482,11 +529,13 @@ async def log_manual_command(
         cmd = Command(
             text=payload.command,
             origin=CommandOrigin(payload.origin),
-            timestamp=datetime.utcnow(),
-            risk_level=RiskLevel.LOW
+            timestamp=datetime.now(UTC),
+            risk_level=(
+                RiskLevel.BLOCKED if payload.blocked else classify_command_risk(payload.command)
+            ),
         )
         await repo.save_manual_command(payload.session_id, cmd)
         return {"ok": True}
     except Exception as e:
-        import traceback
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}
+        logger.exception("Failed to log command to the audit history")
+        return {"ok": False, "error": str(e)}

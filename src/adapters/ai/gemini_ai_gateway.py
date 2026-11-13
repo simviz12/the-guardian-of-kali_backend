@@ -96,7 +96,8 @@ class GeminiAIGateway(AIGateway):
             },
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={self._api_key}"
+        # The key travels in a header (not the URL) so it never ends up in logs.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent"
 
         result_data = await self._call_with_retry(url, payload)
 
@@ -142,7 +143,9 @@ class GeminiAIGateway(AIGateway):
         async with httpx.AsyncClient(timeout=30.0) as client:
             for attempt in range(1, self._max_retries + 1):
                 try:
-                    res = await client.post(url, json=payload)
+                    res = await client.post(
+                        url, json=payload, headers={"x-goog-api-key": self._api_key}
+                    )
                     res.raise_for_status()
                     return res.json()
                 except Exception as exc:
