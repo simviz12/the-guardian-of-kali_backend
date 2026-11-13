@@ -34,12 +34,36 @@ def _installed_distros() -> list[str]:
     return [line.strip().lower() for line in text.splitlines() if line.strip()]
 
 
+TARGET_USER = "ia-user"
+
+
+def _user_exists() -> bool:
+    """True when the restricted Linux account the tests run as exists in the distro."""
+    try:
+        return (
+            subprocess.run(
+                ["wsl.exe", "-d", TARGET_DISTRO, "-u", TARGET_USER, "-e", "true"],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            ).returncode
+            == 0
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def wsl_distro_available() -> bool:
-    """True only when wsl.exe exists and the target distro is installed."""
-    return TARGET_DISTRO.lower() in _installed_distros()
+    """True only when the target distro is installed and has the test account.
+
+    The app itself enters Kali as root; these tests additionally exercise a
+    restricted ``ia-user`` account, which a default Kali install does not have.
+    Create it with: ``wsl -d kali-linux -u root useradd -m ia-user``.
+    """
+    return TARGET_DISTRO.lower() in _installed_distros() and _user_exists()
 
 
 WSL_UNAVAILABLE_REASON = (
-    f"WSL2 distro '{TARGET_DISTRO}' is not installed on this host "
-    "(wsl.exe missing or distro not present)."
+    f"WSL2 distro '{TARGET_DISTRO}' with the '{TARGET_USER}' account is not available "
+    "on this host (wsl.exe missing, distro not installed, or account not created)."
 )

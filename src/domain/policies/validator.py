@@ -39,6 +39,44 @@ def _extract_command_target(command_text: str) -> str | None:
     return None
 
 
+# "-p 80,443", "-p1-1000", "--port 8080", "--ports=80,443", "-p-" (all ports)
+PORT_OPTION_REGEX = re.compile(r"(?:^|\s)(?:-p|--ports?)(?:\s*=\s*|\s*)([0-9][0-9,\-]*|-)(?=\s|$)")
+# "http://host:8080/", "10.10.10.10:22"
+HOST_PORT_REGEX = re.compile(r"[A-Za-z0-9\.\-]:(\d{1,5})(?=[/\s]|$)")
+ALL_PORTS = (1, 65535)
+
+
+def parse_port_ranges(text: str) -> list[tuple[int, int]]:
+    """Parses "80, 443, 8080-8090" into inclusive (low, high) ranges, ignoring junk."""
+    ranges: list[tuple[int, int]] = []
+    for token in re.split(r"[,\s]+", text.strip()):
+        if not token:
+            continue
+        low_text, _, high_text = token.partition("-")
+        if not low_text.isdigit() or (high_text and not high_text.isdigit()):
+            continue
+        low, high = int(low_text), int(high_text or low_text)
+        if 1 <= low <= high <= 65535:
+            ranges.append((low, high))
+    return ranges
+
+
+def _extract_command_ports(command_text: str) -> list[tuple[int, int]]:
+    """Heuristically extracts the port ranges a command explicitly addresses."""
+    requested: list[tuple[int, int]] = []
+    for match in PORT_OPTION_REGEX.finditer(command_text):
+        spec = match.group(1)
+        if spec == "-":
+            requested.append(ALL_PORTS)
+        else:
+            requested.extend(parse_port_ranges(spec))
+    for match in HOST_PORT_REGEX.finditer(command_text):
+        port = int(match.group(1))
+        if 1 <= port <= 65535:
+            requested.append((port, port))
+    return requested
+
+
 def validate_command(command: Command, session: Session) -> PolicyDecision:
     """Evaluates a candidate command against safety policies, scope authorization, and risk classification.
 
@@ -93,6 +131,25 @@ def validate_command(command: Command, session: Session) -> PolicyDecision:
                 f"Target '{target_to_check}' is not within authorized session scope "
                 f"({len(session.authorized_targets)} authorized targets defined)"
             )
+            command.risk_level = RiskLevel.HIGH
+            logger.warning("Policy decision: BLOCK command '%s' - Reason: %s", cmd_text, reason)
+            return PolicyDecision(
+                action=PolicyAction.BLOCK,
+                risk_level=RiskLevel.HIGH,
+                reason=reason,
+                command_text=cmd_text,
+            )
+
+    # 2b. Port authorization check: every explicitly addressed port must be allowed
+    if session.allowed_ports:
+        outside = [
+            (low, high)
+            for low, high in _extract_command_ports(cmd_text)
+            if not any(a_low <= low and high <= a_high for a_low, a_high in session.allowed_ports)
+        ]
+        if outside:
+            listed = ", ".join(str(lo) if lo == hi else f"{lo}-{hi}" for lo, hi in outside)
+            reason = f"Port(s) {listed} are not within the allowed ports of this session"
             command.risk_level = RiskLevel.HIGH
             logger.warning("Policy decision: BLOCK command '%s' - Reason: %s", cmd_text, reason)
             return PolicyDecision(

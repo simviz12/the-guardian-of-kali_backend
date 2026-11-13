@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 import anthropic
+import httpx
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import (
@@ -25,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from src.domain.policies.risk_classifier import classify_command_risk
-from src.domain.policies.validator import validate_command
+from src.domain.policies.validator import parse_port_ranges, validate_command
 from src.domain.value_objects.command_origin import CommandOrigin
 
 from src.application.use_cases.chat_with_ai import ChatWithAIUseCase
@@ -235,6 +236,30 @@ def create_app() -> FastAPI:
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Error communicating with AI service: {exc!s}",
             ) from exc
+        except httpx.HTTPStatusError as exc:
+            # Gemini (called over plain HTTP) reports its failures as status codes.
+            code = exc.response.status_code
+            logger.error(f"Gemini API returned HTTP {code}")
+            if code == 429:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="AI service rate limit exceeded. Please wait a moment before trying again.",
+                ) from exc
+            if code in (400, 401, 403):
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Gemini rejected the API key. Check it in Settings.",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Gemini AI service error (HTTP {code}).",
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.error(f"Gemini API unreachable: {type(exc).__name__}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Gemini AI service is unreachable. Check the internet connection.",
+            ) from exc
         except Exception as exc:
             logger.error(f"Unexpected chat processing error: {exc!s}")
             raise HTTPException(
@@ -281,6 +306,8 @@ def create_app() -> FastAPI:
         target: str | None = None
         authorized_targets: list[str] | None = None
         operation_mode: str | None = None
+        # Free text as typed by the operator, e.g. "80, 443, 8080-8090".
+        allowed_ports: str | None = None
 
     @app.post("/policy/evaluate", status_code=status.HTTP_200_OK, tags=["Policy Engine"])
     async def evaluate_policy(payload: PolicyEvaluatePayload) -> dict[str, str]:
@@ -294,6 +321,7 @@ def create_app() -> FastAPI:
             user="operator",
             authorized_targets=targets,
             is_autonomous=payload.operation_mode == "autonomous",
+            allowed_ports=parse_port_ranges(payload.allowed_ports or ""),
         )
         # The target is deliberately not taken from the AI: it is extracted from the
         # command text so the scope check reflects what would really be contacted.

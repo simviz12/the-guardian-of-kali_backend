@@ -29,6 +29,8 @@ class Session:
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     ended_at: datetime | None = None
     is_autonomous: bool = False
+    # Inclusive (low, high) port ranges the operator allowed; empty means no restriction.
+    allowed_ports: list[tuple[int, int]] = field(default_factory=list)
 
     def add_command(self, command: Command) -> None:
         """Adds a command to the session history, preventing duplicates and ensuring chronological ordering.
